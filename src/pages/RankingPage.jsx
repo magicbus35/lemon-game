@@ -14,6 +14,7 @@ const RankingPage = () => {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 py-6">
       <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">🏆 랭킹</h1>
+
       <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6 shadow-md flex flex-col items-center w-full max-w-2xl">
         <div className="bg-white shadow rounded-lg w-full">
           <table className="w-full text-center border-collapse">

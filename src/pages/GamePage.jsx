@@ -10,8 +10,8 @@ const GAME_DURATION = 120; // 테스트 시 20 등으로 변경
 
 const bonusMessages = [
   "이봐, 친구! 그거 알아? 버디의 본캐는 무려 버디1204라는 놀라운 사실을!",
-  '이봐, 친구! 그거 알아? 블레는 카운터를 치면 안된다는 놀라운 사실을!',
-  "이봐, 친구! 그거 알아? 주급이 무려 200만을 넘는 사람들이 있다는 놀라운 사실을!",
+  '이봐, 친구! 그거 알아? 블레는 무려 카운터를 "못"친다는 놀라운 사실을!',
+  "이봐, 친구! 주급이 200만을 넘는 사람이 있다는 놀라운 사실을!",
 ];
 
 const generateBoard = (rows, cols) =>
@@ -65,7 +65,7 @@ const GamePage = () => {
   const [gameOver, setGameOver] = useState(false);
   const [playerName, setPlayerName] = useState("");
 
-  // 첫 로드시 자동 시작(StrictMode 2회 렌더 가드)
+  // 🔒 첫 로드시 자동 시작(StrictMode 2회 렌더 가드)
   const bootedRef = useRef(false);
   useEffect(() => {
     if (!bootedRef.current) {
@@ -91,7 +91,7 @@ const GamePage = () => {
     setBonusMessage(bonusMessages[Math.floor(Math.random() * bonusMessages.length)]);
   };
 
-  // 카운트다운
+  // ⏳ 카운트다운
   useEffect(() => {
     if (isCountingDown && countdown > 0) {
       const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
@@ -105,7 +105,7 @@ const GamePage = () => {
     }
   }, [isCountingDown, countdown]);
 
-  // 타이머(interval)
+  // ⏱ 타이머(interval) — 안정화
   useEffect(() => {
     if (!gameStarted || timeLeft <= 0) return;
     const id = setInterval(() => {
@@ -114,7 +114,7 @@ const GamePage = () => {
     return () => clearInterval(id);
   }, [gameStarted, timeLeft]);
 
-  // 종료 시 놓친 정답 스냅샷
+  // 🟥 종료 시 놓친 정답 스냅샷
   useEffect(() => {
     if (timeLeft === 0 && gameStarted) {
       const snap = board.map((row) => [...row]);
@@ -140,7 +140,7 @@ const GamePage = () => {
     }
   }, [timeLeft, gameStarted, board]);
 
-  // 드래그 종료
+  // 🖱️ 드래그 종료
   useEffect(() => {
     const up = () => {
       if (!isDragging) return;
@@ -177,7 +177,7 @@ const GamePage = () => {
     return () => window.removeEventListener("mouseup", up);
   }, [isDragging, selectedCells, board, lemonCells]);
 
-  // 보드 변경 시 유효해 검사 → 정답 없으면 즉시 리셋
+  // ♻️ 보드 변경 시 유효해 검사 → 정답 없으면 즉시 리셋
   useEffect(() => {
     if (gameStarted && !gameOver && board.length > 0) {
       if (!hasValidMove(board)) {
@@ -237,7 +237,7 @@ const GamePage = () => {
               />
             </div>
 
-            {/* 보너스 문구 */}
+            {/* 보너스 문구(작고 은은하게) */}
             <p className="mt-2 text-center text-gray-400 text-xs italic">"{bonusMessage}"</p>
           </div>
         )}
@@ -250,15 +250,15 @@ const GamePage = () => {
               최종 점수: <span className="text-green-600 font-bold">{score}</span>
             </p>
 
-            {/* 닉네임 + 등록 */}
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <input
-                type="text"
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-                placeholder="닉네임을 입력하세요"
-                className="border px-3 py-2 rounded w-60"
-              />
+            <input
+              type="text"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              placeholder="닉네임을 입력하세요"
+              className="border px-3 py-2 rounded w-60 mb-4"
+            />
+
+            <div className="flex justify-center gap-4">
               <button
                 onClick={() => {
                   const name = (playerName || "").trim();
@@ -274,24 +274,12 @@ const GamePage = () => {
                       { name, score },
                     ];
                     localStorage.setItem("scores", JSON.stringify(updated));
-                    alert("기록이 등록되었습니다!");
-                  } else {
-                    alert("기존 최고 점수가 더 높아서 등록하지 않았습니다.");
                   }
+                  window.location.href = "/ranking";
                 }}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                등록
-              </button>
-            </div>
-
-            {/* 이동/재시작 */}
-            <div className="flex justify-center gap-4">
-              <button
-                onClick={() => (window.location.href = "/ranking")}
                 className="px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
               >
-                🏆 랭킹 보기
+                🏆 랭킹으로
               </button>
 
               <button
