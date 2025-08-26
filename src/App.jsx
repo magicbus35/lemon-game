@@ -1,18 +1,16 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import GamePage from "./routes/GamePage";
-import ResultPage from "./routes/ResultPage";
-import RankingPage from "./routes/RankingPage";
+import GamePage from "./pages/GamePage";
+import RankingPage from "./pages/RankingPage";
+import ResultPage from "./pages/ResultPage";
 
-function App() {
+export default function App() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<GamePage />} />
-        <Route path="/result" element={<ResultPage />} />
         <Route path="/ranking" element={<RankingPage />} />
+        <Route path="/result" element={<ResultPage />} />
       </Routes>
     </Router>
   );
 }
-
-export default App;
