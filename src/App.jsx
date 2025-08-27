@@ -5,7 +5,6 @@ import HomePage from "./pages/HomePage";
 import GamePage from "./pages/GamePage";
 import RankingPage from "./pages/RankingPage";
 import ResultPage from "./pages/ResultPage";
-import SupaTest from "./pages/SupaTest";
 
 export default function App() {
   return (
@@ -16,7 +15,6 @@ export default function App() {
           <Route path="/game" element={<GamePage />} />
           <Route path="/ranking" element={<RankingPage />} />
           <Route path="/result" element={<ResultPage />} />
-          <Route path="/_test" element={<SupaTest />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

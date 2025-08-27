@@ -22,51 +22,91 @@ export async function saveScore(payload) {
       const { error } = await supabase
         .from("scores")
         .insert({ nickname: nickname.trim(), score })
-        .select("id") // 불필요한 컬럼 최소화
+        .select("id")
         .single();
-      if (error) throw error; // ✅ 에러 체크
+      if (error) throw error;
     } else {
       const raw = localStorage.getItem("scores");
       const arr = raw ? JSON.parse(raw) : [];
-      arr.push({ nickname: nickname.trim(), score, createdAt: Date.now() });
+      arr.push({ nickname: nickname.trim(), score, created_at: new Date().toISOString() });
       localStorage.setItem("scores", JSON.stringify(arr));
     }
 
     return true;
   } catch (e) {
-    // eslint-disable-next-line no-console
     console.error("[scoreStore.saveScore] error:", e);
     return false;
   }
 }
 
 /**
- * 랭킹 조회: 상위 점수 순서대로 반환
- * @param {number} limit 최대 개수 (기본 50)
- * @returns {Promise<Array<{nickname:string, score:number, created_at?:string, createdAt?:number}>>}
+ * 랭킹 조회: 닉네임당 최고점(뷰 ranking_top) 기준 TOP N
+ * 뷰가 없으면 임시 폴백: scores에서 가져와 닉네임별 1회만 남김
  */
 export async function fetchRanking(limit = 50) {
   try {
-    if (supabase) {
-      const { data, error } = await supabase
-        .from("ranking_top")                               // ← 뷰 사용
-        .select("nickname, score, created_at")
-        .order("score", { ascending: false })              // 전체 랭킹 정렬
-        .order("created_at", { ascending: true })
-        .limit(limit);
-      if (error) throw error;
-      return data ?? [];
-    } else {
+    if (!supabase) {
+      // 로컬 폴백
       const raw = localStorage.getItem("scores");
       const arr = raw ? JSON.parse(raw) : [];
-      arr.sort(
-        (a, b) => (b.score - a.score) || ((a.createdAt || 0) - (b.createdAt || 0))
-      );
-      return arr.slice(0, limit);
+      return dedupeTopByNickname(arr)
+        .sort(sortByScoreDescThenCreatedAtAsc)
+        .slice(0, limit);
     }
+
+    // 1차: 뷰 사용(권장)
+    const { data, error } = await supabase
+      .from("ranking_top")
+      .select("nickname, score, created_at")
+      .order("score", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(limit);
+
+    if (error) {
+      // 2차: 뷰가 없을 때(예: 42P01) 폴백
+      console.warn("[fetchRanking] view ranking_top not available, fallback to client dedupe:", error?.message);
+      const { data: raw, error: e2 } = await supabase
+        .from("scores")
+        .select("nickname, score, created_at")
+        .order("score", { ascending: false })
+        .order("created_at", { ascending: true })
+        .limit(limit * 5); // 여유있게
+      if (e2) throw e2;
+      const deduped = dedupeTopByNickname(raw).sort(sortByScoreDescThenCreatedAtAsc);
+      return deduped.slice(0, limit);
+    }
+
+    return data ?? [];
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("[scoreStore.fetchRanking] error:", e);
+    console.error("[scoreStore.fetchRanking] error:", e?.message || e);
     return [];
   }
+}
+
+// 헬퍼들
+function sortByScoreDescThenCreatedAtAsc(a, b) {
+  if ((b?.score ?? 0) !== (a?.score ?? 0)) return (b?.score ?? 0) - (a?.score ?? 0);
+  const ta = new Date(a?.created_at || a?.createdAt || 0).getTime();
+  const tb = new Date(b?.created_at || b?.createdAt || 0).getTime();
+  return ta - tb;
+}
+function dedupeTopByNickname(rows = []) {
+  const best = new Map();
+  for (const r of rows) {
+    const nick = r?.nickname?.toString?.() ?? "";
+    if (!nick) continue;
+    const cur = best.get(nick);
+    if (!cur) {
+      best.set(nick, r);
+    } else {
+      // 더 높은 점수 또는 같은 점수면 더 이른 created_at 유지
+      if ((r.score ?? 0) > (cur.score ?? 0)) best.set(nick, r);
+      else if ((r.score ?? 0) === (cur.score ?? 0)) {
+        const ta = new Date(r.created_at || r.createdAt || 0).getTime();
+        const tb = new Date(cur.created_at || cur.createdAt || 0).getTime();
+        if (ta < tb) best.set(nick, r);
+      }
+    }
+  }
+  return Array.from(best.values());
 }

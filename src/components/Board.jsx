@@ -1,18 +1,7 @@
 // src/components/Board.jsx
 import React from "react";
 
-/**
- * props:
- * - board: number[][] (null은 지워진 칸)
- * - lemonCells: Set<string>
- * - selectedCells: Set<string>
- * - hoveredCell: string | null
- * - missedCells: Set<string>
- * - onMouseDown(row,col), onMouseOver(row,col)
- * - disabled?: boolean
- * - cellSize?: number  // ← 추가: 기본 34px
- */
-export default function Board({
+const Board = ({
   board = [],
   lemonCells = new Set(),
   selectedCells = new Set(),
@@ -21,15 +10,16 @@ export default function Board({
   onMouseDown,
   onMouseOver,
   disabled = false,
-  cellSize = 34,
-}) {
-  const fs = Math.max(14, Math.round(cellSize * 0.55)); // 숫자 폰트 크기
-  const lemonFs = Math.round(cellSize * 0.7); // 레몬 이모지 크기
+  cellSize = 36,      // 보드 크기 조절
+}) => {
+  if (!board || board.length === 0) return null;
+
+  const fontSize = Math.max(14, Math.round(cellSize * 0.56));
 
   return (
     <div
-      className="inline-block rounded-lg border-2 border-green-400 bg-white user-select-none select-none"
-      style={{ padding: 6 }}
+      className="grid gap-[1px] select-none"
+      style={{ gridTemplateColumns: `repeat(${board[0].length}, ${cellSize}px)` }}
     >
       {board.map((row, r) => (
         <div key={r} className="flex">
@@ -49,49 +39,42 @@ export default function Board({
 
             const border = isMissed ? "1px solid rgba(239,68,68,.7)" : "1px solid rgba(209,213,219,1)"; // gray-300
 
-            return (
-              <div
-                key={c}
-                onMouseDown={() => !disabled && onMouseDown?.(r, c)}
-                onMouseOver={() => !disabled && onMouseOver?.(r, c)}
-                style={{
-                  width: cellSize,
-                  height: cellSize,
-                  lineHeight: `${cellSize}px`,
-                  fontSize: fs,
-                  textAlign: "center",
-                  position: "relative",
-                  background: bg,
-                  borderRight: border,
-                  borderBottom: border,
-                  cursor: disabled ? "default" : "crosshair",
-                  userSelect: "none",
-                }}
-              >
-                {/* 값 */}
-                {!isEmpty && <span style={{ position: "relative", zIndex: 1 }}>{num}</span>}
+          return (
+            <div
+              key={key}
+              onMouseDown={() => !disabled && onMouseDown?.(rowIndex, colIndex)}
+              onMouseOver={() => !disabled && onMouseOver?.(rowIndex, colIndex)}
+              className={`relative flex items-center justify-center text-sm border
+                ${isMissed ? "bg-red-200"
+                  : isSelected ? "bg-blue-200"
+                  : isHovered ? "bg-green-100"
+                  : "bg-gray-100"}
+                ${disabled ? "opacity-50" : ""}`}
+              style={{ width: cellSize, height: cellSize }}
+            >
+              {/* 레몬: 원래 위치(롤백). 숫자보다 아래(zIndex 1) */}
+              {isLemon && num !== null && (
+                <img
+                  src="/images/lemon.png"
+                  alt="lemon"
+                  className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                  style={{ opacity: 0.9, zIndex: 1 }}
+                />
+              )}
 
-                {/* 레몬 표시 */}
-                {isLemon && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: lemonFs,
-                      opacity: 0.9,
-                    }}
-                  >
-                    🍋
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ))}
+              {/* 숫자: 레몬 위(zIndex 2)로 가독성 유지 */}
+              {num !== null && (
+                <span
+                  className="relative font-bold select-none"
+                  style={{ zIndex: 2, fontSize }}
+                >
+                  {num}
+                </span>
+              )}
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }

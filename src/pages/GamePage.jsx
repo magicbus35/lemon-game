@@ -4,6 +4,7 @@ import Countdown from "../components/Countdown";
 import ScoreDisplay from "../components/ScoreDisplay";
 import Timer from "../components/Timer";
 import { saveScore } from "../services/scoreStore";
+import { logPlayEvent } from "../services/analytics";
 
 const ROWS = 10;
 const COLS = 17;
@@ -48,7 +49,6 @@ const hasValidMove = (board) => {
 };
 
 export default function GamePage() {
-  // 보드/게임 상태
   const [board, setBoard] = useState([]);
   const [lemonCells, setLemonCells] = useState(new Set());
   const [selectedCells, setSelectedCells] = useState(new Set());
@@ -63,6 +63,10 @@ export default function GamePage() {
   const [isCountingDown, setIsCountingDown] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [bonusMessage, setBonusMessage] = useState("");
+
+  // 플레이 세션 식별/시작시각 (한 판 기준)
+  const [runId, setRunId] = useState(null);
+  const [startedAt, setStartedAt] = useState(0);
 
   const [gameOver, setGameOver] = useState(false);
   const [playerName, setPlayerName] = useState("");
@@ -98,26 +102,46 @@ export default function GamePage() {
     prevScoreRef.current = typeof score === "number" ? score : prevScoreRef.current;
   }, [score]);
 
-  // ✅ 자동 시작 제거: 처음엔 대기 화면(규칙 + 시작 버튼)만 보여줌
+  // ▶ 시작 버튼: 보드는 만들지 않고 카운트다운만 시작 (보드는 0초에 생성)
   const startGame = () => {
     setScore(0);
     prevScoreRef.current = 0;
-    setBoard([]);
+
+    setBoard([]);                 // ← 카운트다운 동안 보드 숨김
     setLemonCells(new Set());
     setSelectedCells(new Set());
     setHoveredCell(null);
-    setMissedCells(new Set());
+    setMissedCells(new Set());    // ← 이전 판 "놓친 정답" 빨간칸 노출 방지
     setDragStart(null);
+
     setIsCountingDown(true);
     setCountdown(3);
-    setGameStarted(true);            // ← “시작 버튼” 눌렀음을 표시
+    setGameStarted(true);
     setTimeLeft(0);
     setGameOver(false);
     setPlayerName("");
     setBonusMessage(bonusMessages[Math.floor(Math.random() * bonusMessages.length)]);
+
+    // ▶ 세션 생성 + start 이벤트 기록
+    try {
+      const id =
+        (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+        Math.random().toString(36).slice(2);
+      setRunId(id);
+      const now = Date.now();
+      setStartedAt(now);
+      logPlayEvent({
+        event: "start",
+        session_id: id,
+        user_agent: navigator.userAgent,
+        referrer: document.referrer || "",
+      });
+    } catch (e) {
+      console.warn("start event logging failed:", e);
+    }
   };
 
-  // 카운트다운 → 보드 생성
+  // ⏳ 카운트다운 → 0이 되는 순간에 보드/레몬 생성 + 타이머 시작
   useEffect(() => {
     if (isCountingDown && countdown > 0) {
       const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
@@ -130,14 +154,14 @@ export default function GamePage() {
     }
   }, [isCountingDown, countdown]);
 
-  // 타이머
+  // ⏱ 타이머
   useEffect(() => {
     if (!gameStarted || timeLeft <= 0) return;
     const id = setInterval(() => setTimeLeft((x) => (x > 0 ? x - 1 : 0)), 1000);
     return () => clearInterval(id);
   }, [gameStarted, timeLeft]);
 
-  // 타임업 시 놓친 정답 표시
+  // 🟥 타임업 시 놓친 정답 계산
   useEffect(() => {
     if (timeLeft === 0 && gameStarted && board.length > 0 && !gameOver) {
       const snap = board.map((row) => [...row]);
@@ -199,15 +223,31 @@ export default function GamePage() {
     return () => window.removeEventListener("mouseup", up);
   }, [isDragging, selectedCells, board, lemonCells]);
 
-  // 정답 없으면 즉시 리셋
+  // ♻️ 정답 없으면 즉시 리셋 (카운트다운 중 제외)
   useEffect(() => {
-    if (gameStarted && !gameOver && board.length > 0) {
+    if (gameStarted && !gameOver && board.length > 0 && !isCountingDown) {
       if (!hasValidMove(board)) {
         setBoard(generateBoard(ROWS, COLS));
         setLemonCells(generateLemonCells(ROWS, COLS, 10));
       }
     }
-  }, [board, gameStarted, gameOver]);
+  }, [board, gameStarted, gameOver, isCountingDown]);
+
+  // 게임이 끝나는 순간 duration 포함 end 이벤트 기록
+  useEffect(() => {
+    if (gameOver && runId && startedAt) {
+      const dur = Date.now() - startedAt;
+      logPlayEvent({
+        event: "end",
+        session_id: runId,
+        score,
+        duration_ms: dur,
+        user_agent: navigator.userAgent,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameOver]);
+
 
   // 드래그 시작/진행
   const handleMouseDown = (row, col) => {
@@ -229,23 +269,21 @@ export default function GamePage() {
     }
   };
 
-  // ───────────────────────────────── UI ─────────────────────────────────
-
-  // ① 프리게임(규칙만 보여주고, 시작 버튼)
   const isPreGame = !gameStarted && !isCountingDown && board.length === 0;
 
   return (
-    <div className="max-w-[1200px]">
-      {/* 제목 */}
-      <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">🍋 레몬게임</h1>
+    <div className="w-full">
+      {/* 중앙 제목 */}
+      <h1 className="text-3xl font-bold mb-6 flex items-center gap-2 justify-center text-center">
+        🍋 레몬게임
+      </h1>
 
-      {/* 2열 레이아웃: 왼쪽(보드/컨트롤) + 오른쪽(규칙 패널) */}
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
-        {/* LEFT */}
-        <div className="flex-1 w-full">
+      {/* 단일 컬럼: 위(보드/게임시작), 아래(규칙) — 모두 중앙 */}
+      <div className="flex flex-col items-center gap-6">
+        {/* 위: 보드/게임시작 카드 */}
+        <div className="w-full max-w-[820px]">
           {isPreGame ? (
-            // 프리게임 카드
-            <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6 shadow-md">
+            <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6 shadow-md text-center">
               <p className="text-gray-700 mb-4">
                 규칙을 확인한 뒤 <b>게임 시작</b>을 누르면 3초 후에 시작합니다.
               </p>
@@ -257,7 +295,6 @@ export default function GamePage() {
               </button>
             </div>
           ) : (
-            // 게임/카운트다운/종료 UI
             <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6 shadow-md">
               {/* 점수/타이머 */}
               <div className="flex justify-center gap-8 mb-4">
@@ -265,13 +302,17 @@ export default function GamePage() {
                 <Timer timeLeft={timeLeft} />
               </div>
 
-              {/* 카운트다운 */}
-              {isCountingDown && countdown > 0 && <Countdown countdown={countdown} />}
+              {/* 카운트다운 (이때는 보드가 없음) */}
+              {isCountingDown && countdown > 0 && (
+                <div className="mb-3 flex justify-center">
+                  <Countdown countdown={countdown} />
+                </div>
+              )}
 
-              {/* 보드 */}
+              {/* 보드: 카운트다운 종료 후에만 생성/표시 */}
               {board.length > 0 && (
                 <div className="flex flex-col items-center">
-                  <div className="p-3 bg-green-100 border-2 border-green-400 rounded-lg overflow-auto">
+                  <div className="p-3 bg-green-100 border-2 border-green-400 rounded-lg overflow-auto mx-auto">
                     <Board
                       board={board}
                       lemonCells={lemonCells}
@@ -281,7 +322,7 @@ export default function GamePage() {
                       onMouseDown={handleMouseDown}
                       onMouseOver={handleMouseOver}
                       disabled={!gameStarted || isCountingDown || timeLeft <= 0}
-                      cellSize={36} // ← 원하는 크기로(34~40 추천)
+                      cellSize={36}
                     />
                   </div>
                   <p className="mt-2 text-center text-gray-400 text-xs italic">"{bonusMessage}"</p>
@@ -296,7 +337,6 @@ export default function GamePage() {
                     최종 점수: <span className="text-green-600 font-bold">{score}</span>
                   </p>
 
-                  {/* 닉네임 입력 + 등록 */}
                   <div className="flex flex-col items-center gap-2 mb-4">
                     <input
                       type="text"
@@ -306,7 +346,7 @@ export default function GamePage() {
                       maxLength={16}
                       className="border px-3 py-2 rounded w-60"
                     />
-                    {trimmedName.length > 0 && !isNickValid && (
+                    {!isNickValid && trimmedName.length > 0 && (
                       <p className="text-red-600 text-sm">
                         닉네임 형식이 올바르지 않습니다. (2~16자, 한/영/숫자/_/-, 공백 불가, “익명/anonymous/anon” 금지)
                       </p>
@@ -320,6 +360,17 @@ export default function GamePage() {
                         try {
                           const ok = await saveScore({ nickname: trimmedName, score });
                           if (ok) {
+                            try {
+                              if (runId) {
+                                logPlayEvent({
+                                  event: "save",
+                                  session_id: runId,
+                                  nickname: trimmedName,
+                                  score,
+                                  user_agent: navigator.userAgent,
+                                });
+                              }
+                            } catch {}
                             try { sessionStorage.setItem("lemon_last_nick", trimmedName); } catch {}
                             window.location.href = "/ranking";
                           } else {
@@ -356,7 +407,7 @@ export default function GamePage() {
 
               {/* 게임 중 빠른 리트 */}
               {gameStarted && !gameOver && (
-                <div className="mt-6">
+                <div className="mt-6 flex justify-center">
                   <button
                     onClick={startGame}
                     className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
@@ -369,9 +420,9 @@ export default function GamePage() {
           )}
         </div>
 
-        {/* RIGHT: 규칙 패널 (항상 표시, sticky) */}
-        <div className="w-full lg:w-80 xl:w-96">
-          <div className="lg:sticky lg:top-6 bg-white border rounded-lg p-5">
+        {/* 아래: 규칙(중앙) */}
+        <div className="w-full max-w-[820px]">
+          <div className="bg-white border rounded-lg p-5">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-2xl">🍋</span>
               <h2 className="text-xl font-bold">레몬 게임 규칙</h2>
