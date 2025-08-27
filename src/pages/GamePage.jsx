@@ -5,6 +5,7 @@ import Countdown from "../components/Countdown";
 import ScoreDisplay from "../components/ScoreDisplay";
 import Timer from "../components/Timer";
 import { saveScore } from "../services/scoreStore";
+import { logPlayEvent } from "../services/analytics";
 
 const ROWS = 10;
 const COLS = 17;
@@ -64,6 +65,10 @@ export default function GamePage() {
   const [countdown, setCountdown] = useState(0);
   const [bonusMessage, setBonusMessage] = useState("");
 
+  // 플레이 세션 식별/시작시각 (한 판 기준)
+  const [runId, setRunId] = useState(null);
+  const [startedAt, setStartedAt] = useState(0);
+
   const [gameOver, setGameOver] = useState(false);
   const [playerName, setPlayerName] = useState("");
 
@@ -117,6 +122,24 @@ export default function GamePage() {
     setGameOver(false);
     setPlayerName("");
     setBonusMessage(bonusMessages[Math.floor(Math.random() * bonusMessages.length)]);
+
+    // ▶ 세션 생성 + start 이벤트 기록
+    try {
+      const id =
+        (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+        Math.random().toString(36).slice(2);
+      setRunId(id);
+      const now = Date.now();
+      setStartedAt(now);
+      logPlayEvent({
+        event: "start",
+        session_id: id,
+        user_agent: navigator.userAgent,
+        referrer: document.referrer || "",
+      });
+    } catch (e) {
+      console.warn("start event logging failed:", e);
+    }
   };
 
   // ⏳ 카운트다운 → 0이 되는 순간에 보드/레몬 생성 + 타이머 시작
@@ -210,6 +233,22 @@ export default function GamePage() {
       }
     }
   }, [board, gameStarted, gameOver, isCountingDown]);
+
+  // 게임이 끝나는 순간 duration 포함 end 이벤트 기록
+  useEffect(() => {
+    if (gameOver && runId && startedAt) {
+      const dur = Date.now() - startedAt;
+      logPlayEvent({
+        event: "end",
+        session_id: runId,
+        score,
+        duration_ms: dur,
+        user_agent: navigator.userAgent,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameOver]);
+
 
   // 드래그 시작/진행
   const handleMouseDown = (row, col) => {
@@ -322,6 +361,17 @@ export default function GamePage() {
                         try {
                           const ok = await saveScore({ nickname: trimmedName, score });
                           if (ok) {
+                            try {
+                              if (runId) {
+                                logPlayEvent({
+                                  event: "save",
+                                  session_id: runId,
+                                  nickname: trimmedName,
+                                  score,
+                                  user_agent: navigator.userAgent,
+                                });
+                              }
+                            } catch {}
                             try { sessionStorage.setItem("lemon_last_nick", trimmedName); } catch {}
                             window.location.href = "/ranking";
                           } else {
