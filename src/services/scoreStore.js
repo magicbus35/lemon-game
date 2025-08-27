@@ -49,10 +49,10 @@ export async function fetchRanking(limit = 50) {
   try {
     if (supabase) {
       const { data, error } = await supabase
-        .from("scores")
+        .from("ranking_top")                               // ← 뷰 사용
         .select("nickname, score, created_at")
-        .order("score", { ascending: false })
-        .order("created_at", { ascending: true }) // 동점 시 먼저 올린 사람 우선
+        .order("score", { ascending: false })              // 전체 랭킹 정렬
+        .order("created_at", { ascending: true })
         .limit(limit);
       if (error) throw error;
       return data ?? [];
