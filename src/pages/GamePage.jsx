@@ -1,8 +1,10 @@
+// src/pages/GamePage.jsx
 import React, { useState, useEffect, useRef } from "react";
 import Board from "../components/Board";
 import Countdown from "../components/Countdown";
 import ScoreDisplay from "../components/ScoreDisplay";
 import Timer from "../components/Timer";
+import { saveScore } from "../services/scoreStore";
 
 const ROWS = 10;
 const COLS = 17;
@@ -65,6 +67,47 @@ const GamePage = () => {
   const [gameOver, setGameOver] = useState(false);
   const [playerName, setPlayerName] = useState("");
 
+  // ✅ 닉네임 검증 규칙
+  const NICK_RE = /^(?=.{2,16}$)[가-힣A-Za-z0-9_-]+$/;
+  const FORBIDDEN = ["익명", "anonymous", "anon"];
+  const trimmedName = (playerName || "").trim();
+  const isNickValid =
+    trimmedName.length > 0 &&
+    NICK_RE.test(trimmedName) &&
+    !FORBIDDEN.some((w) => trimmedName.toLowerCase() === w);
+
+  // 성공 사운드 프리로드 + 점수 증가 시 재생(useEffect)
+  const successAudioRef = useRef(null);
+  useEffect(() => {
+    try {
+      const a = new Audio("/sound/success.mp3");
+      a.preload = "auto";
+      a.load();
+      successAudioRef.current = a;
+    } catch {
+      // 무시
+    }
+  }, []);
+  const playSuccess = () => {
+    try {
+      const a = successAudioRef.current;
+      if (a) {
+        a.currentTime = 0;
+        a.play().catch(() => {});
+      }
+    } catch {
+      // 무시
+    }
+  };
+  const prevScoreRef = useRef(0);
+  useEffect(() => {
+    const current = score;
+    if (typeof current === "number" && current > prevScoreRef.current) {
+      playSuccess();
+    }
+    prevScoreRef.current = typeof current === "number" ? current : prevScoreRef.current;
+  }, [score]);
+
   // 🔒 첫 로드시 자동 시작(StrictMode 2회 렌더 가드)
   const bootedRef = useRef(false);
   useEffect(() => {
@@ -76,6 +119,7 @@ const GamePage = () => {
 
   const startGame = () => {
     setScore(0);
+    if (prevScoreRef) prevScoreRef.current = 0; // 점수 감지 기준 초기화
     setBoard([]);
     setLemonCells(new Set());
     setSelectedCells(new Set());
@@ -169,7 +213,10 @@ const GamePage = () => {
         const nextLemons = new Set(lemonCells);
         selectedCells.forEach((k) => nextLemons.delete(k));
         setLemonCells(nextLemons);
-        new Audio("/sound/success.mp3").play();
+
+        // 성공음은 score 변화 useEffect에서 재생됨
+        // (직접 재생을 원하면 아래 한 줄을 해제하세요)
+        // new Audio("/sound/success.mp3").play();
       }
       setSelectedCells(new Set());
     };
@@ -250,36 +297,65 @@ const GamePage = () => {
               최종 점수: <span className="text-green-600 font-bold">{score}</span>
             </p>
 
-            <input
-              type="text"
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              placeholder="닉네임을 입력하세요"
-              className="border px-3 py-2 rounded w-60 mb-4"
-            />
+            {/* 닉네임 입력 + 등록 버튼 */}
+            <div className="flex flex-col items-center gap-2 mb-4">
+              <input
+                type="text"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                placeholder="2~16자, 한/영/숫자/_/- (공백 불가)"
+                maxLength={16}
+                className="border px-3 py-2 rounded w-60"
+              />
 
-            <div className="flex justify-center gap-4">
+              {/* 형식 경고 */}
+              {trimmedName.length > 0 && !isNickValid && (
+                <p className="text-red-600 text-sm">
+                  닉네임 형식이 올바르지 않습니다. (2~16자, 한/영/숫자/_/-, 공백 불가, “익명/anonymous/anon” 금지)
+                </p>
+              )}
+
               <button
-                onClick={() => {
-                  const name = (playerName || "").trim();
-                  if (name.length === 0 || name === "익명") {
-                    alert("익명으로는 기록이 저장되지 않습니다. 닉네임을 입력해 주세요.");
+                onClick={async () => {
+                  if (!isNickValid) {
+                    alert("닉네임 형식이 올바르지 않습니다.");
                     return;
                   }
-                  const stored = JSON.parse(localStorage.getItem("scores")) || [];
-                  const existing = stored.find((s) => s.name === name);
-                  if (!existing || existing.score < score) {
-                    const updated = [
-                      ...stored.filter((s) => s.name !== name),
-                      { name, score },
-                    ];
-                    localStorage.setItem("scores", JSON.stringify(updated));
+                  try {
+                    const ok = await saveScore({ nickname: trimmedName, score });
+                    if (ok) {
+                      // (옵션) 마지막 등록 닉 저장 — 랭킹 페이지에서 강조 표시 등에 쓸 수 있음
+                      try { sessionStorage.setItem("lemon_last_nick", trimmedName); } catch {}
+
+                      // ✅ 저장 성공 시 자동 이동
+                      window.location.href = "/ranking";
+                      // SPA 방식으로 하고 싶다면:
+                      // import { useNavigate } from "react-router-dom";
+                      // const navigate = useNavigate();
+                      // navigate("/ranking", { replace: true });
+                    } else {
+                      alert("등록에 실패했습니다. 잠시 후 다시 시도해주세요.");
+                    }
+                  } catch (err) {
+                    console.error(err);
+                    alert("등록 중 오류가 발생했습니다.");
                   }
-                  window.location.href = "/ranking";
                 }}
+                disabled={!isNickValid}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                등록
+              </button>
+
+            </div>
+
+            {/* 이동/재시작 */}
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => { window.location.href = "/ranking"; }}
                 className="px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
               >
-                🏆 랭킹으로
+                🏆 랭킹 보기
               </button>
 
               <button

@@ -1,59 +1,106 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+// src/pages/RankingPage.jsx
+import { useEffect, useState } from "react";
+import { fetchRanking } from "../services/scoreStore";
+import { Link } from "react-router-dom";
 
-const RankingPage = () => {
-  const [rankings, setRankings] = useState([]);
-  const navigate = useNavigate();
+export default function RankingPage() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
 
-  useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("scores")) || [];
-    const sorted = stored.sort((a, b) => b.score - a.score);
-    setRankings(sorted);
-  }, []);
+  const load = async () => {
+    setLoading(true);
+    setErr("");
+    try {
+      const data = await fetchRanking(50); // 상위 50
+      setRows(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+      setErr("랭킹을 불러오는 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const formatDate = (v) => {
+    if (!v) return "-";
+    try {
+      // Supabase: created_at (ISO) / localStorage: createdAt (ms)
+      const d = typeof v === "string" ? new Date(v) : new Date(Number(v));
+      return d.toLocaleString("ko-KR");
+    } catch {
+      return "-";
+    }
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 py-6">
-      <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">🏆 랭킹</h1>
-
-      <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6 shadow-md flex flex-col items-center w-full max-w-2xl">
-        <div className="bg-white shadow rounded-lg w-full">
-          <table className="w-full text-center border-collapse">
-            <thead>
-              <tr className="bg-green-100 text-green-800">
-                <th className="py-3 px-4 border">순위</th>
-                <th className="py-3 px-4 border">닉네임</th>
-                <th className="py-3 px-4 border">점수</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rankings.length === 0 ? (
-                <tr>
-                  <td colSpan="3" className="py-6 text-gray-500">
-                    아직 등록된 기록이 없습니다.
-                  </td>
-                </tr>
-              ) : (
-                rankings.map((r, idx) => (
-                  <tr key={idx} className={`${idx % 2 === 0 ? "bg-white" : "bg-green-50"}`}>
-                    <td className="py-2 px-4 border font-semibold">{idx + 1}</td>
-                    <td className="py-2 px-4 border">{r.name}</td>
-                    <td className="py-2 px-4 border text-green-700 font-bold">{r.score}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+    <main className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-3xl mx-auto bg-white border rounded-lg shadow">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <h2 className="text-2xl font-bold">🏆 랭킹</h2>
+          <div className="flex gap-2">
+            <Link to="/game">
+              <button className="px-3 py-2 bg-black text-white rounded hover:bg-gray-800">
+                🍋 게임 시작
+              </button>
+            </Link>
+            <button
+              onClick={load}
+              className="px-3 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+            >
+              새로고침
+            </button>
+            <Link to="/">
+              <button className="px-3 py-2 border rounded hover:bg-gray-100">홈</button>
+            </Link>
+          </div>
         </div>
 
-        <button
-          onClick={() => navigate("/")}
-          className="mt-6 px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
-        >
-          🍋 메인으로
-        </button>
-      </div>
-    </div>
-  );
-};
+        {/* 바디 */}
+        <div className="p-4">
+          {loading && <p className="text-gray-600">불러오는 중...</p>}
+          {!loading && err && (
+            <p className="text-red-600">{err}</p>
+          )}
+          {!loading && !err && rows.length === 0 && (
+            <p className="text-gray-600">아직 등록된 기록이 없어요. 첫 기록을 남겨보세요!</p>
+          )}
 
-export default RankingPage;
+          {!loading && !err && rows.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="min-w-[640px] w-full border border-gray-200">
+                <thead>
+                  <tr className="bg-gray-100 text-left">
+                    <th className="border-b px-3 py-2 w-16">순위</th>
+                    <th className="border-b px-3 py-2">닉네임</th>
+                    <th className="border-b px-3 py-2 w-28 text-right">점수</th>
+                    <th className="border-b px-3 py-2 w-56">등록 시간</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => (
+                    <tr key={`${r.nickname}-${i}`} className="odd:bg-white even:bg-gray-50">
+                      <td className="border-t px-3 py-2">{i + 1}</td>
+                      <td className="border-t px-3 py-2 break-all">{r.nickname}</td>
+                      <td className="border-t px-3 py-2 text-right font-semibold">{r.score}</td>
+                      <td className="border-t px-3 py-2">
+                        {formatDate(r.created_at ?? r.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <p className="text-xs text-gray-400 mt-2">
+                동점일 경우 먼저 등록한 기록이 우선합니다.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
