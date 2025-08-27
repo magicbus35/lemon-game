@@ -1,69 +1,97 @@
+// src/components/Board.jsx
 import React from "react";
 
-const Board = ({
-  board,
-  lemonCells,
-  selectedCells,
-  hoveredCell,
-  missedCells,
+/**
+ * props:
+ * - board: number[][] (null은 지워진 칸)
+ * - lemonCells: Set<string>
+ * - selectedCells: Set<string>
+ * - hoveredCell: string | null
+ * - missedCells: Set<string>
+ * - onMouseDown(row,col), onMouseOver(row,col)
+ * - disabled?: boolean
+ * - cellSize?: number  // ← 추가: 기본 34px
+ */
+export default function Board({
+  board = [],
+  lemonCells = new Set(),
+  selectedCells = new Set(),
+  hoveredCell = null,
+  missedCells = new Set(),
   onMouseDown,
   onMouseOver,
-  disabled,
-}) => {
-  if (!board || board.length === 0) return null;
+  disabled = false,
+  cellSize = 34,
+}) {
+  const fs = Math.max(14, Math.round(cellSize * 0.55)); // 숫자 폰트 크기
+  const lemonFs = Math.round(cellSize * 0.7); // 레몬 이모지 크기
 
   return (
     <div
-      className="grid gap-[1px] select-none"
-      style={{ gridTemplateColumns: `repeat(${board[0].length}, minmax(0, 1fr))` }}
+      className="inline-block rounded-lg border-2 border-green-400 bg-white user-select-none select-none"
+      style={{ padding: 6 }}
     >
-      {board.map((row, rowIndex) =>
-        row.map((num, colIndex) => {
-          const key = `${rowIndex}-${colIndex}`;
-          const isSelected = selectedCells.has(key);
-          const isLemon = lemonCells.has(key);
-          const isMissed = missedCells.has(key);
-          const isHovered = hoveredCell === key;
+      {board.map((row, r) => (
+        <div key={r} className="flex">
+          {row.map((num, c) => {
+            const key = `${r}-${c}`;
+            const isSelected = selectedCells?.has(key);
+            const isMissed = missedCells?.has(key);
+            const isHovered = hoveredCell === key;
+            const isLemon = lemonCells?.has(key);
+            const isEmpty = num === null;
 
-          return (
-            <div
-              key={key}
-              onMouseDown={() => !disabled && onMouseDown(rowIndex, colIndex)}
-              onMouseOver={() => !disabled && onMouseOver(rowIndex, colIndex)}
-              className={`relative w-[30px] h-[30px] flex items-center justify-center text-sm border
-                ${
-                  isMissed
-                    ? "bg-red-300"
-                    : isSelected
-                    ? "bg-yellow-300"
-                    : isHovered
-                    ? "bg-gray-200"
-                    : "bg-white"
-                }
-                ${disabled ? "opacity-50" : ""}
-              `}
-            >
-              {/* 레몬 배경(숫자가 남아있을 때만 표시) */}
-              {isLemon && num !== null && (
-                <img
-                  src="/images/lemon.png"
-                  alt="lemon"
-                  className="absolute inset-0 w-full h-full object-contain opacity-80 pointer-events-none"
-                />
-              )}
+            const bg =
+              isSelected ? "rgba(59,130,246,0.18)" : // blue-500/18
+              isMissed   ? "rgba(239,68,68,0.14)"  : // red-500/14
+              isHovered  ? "rgba(34,197,94,0.10)"  : // green-500/10
+              "rgba(243,244,246,1)";                 // gray-100
 
-              {/* 숫자 */}
-              {num !== null ? (
-                <span className="relative z-10 font-bold select-none">{num}</span>
-              ) : (
-                ""
-              )}
-            </div>
-          );
-        })
-      )}
+            const border = isMissed ? "1px solid rgba(239,68,68,.7)" : "1px solid rgba(209,213,219,1)"; // gray-300
+
+            return (
+              <div
+                key={c}
+                onMouseDown={() => !disabled && onMouseDown?.(r, c)}
+                onMouseOver={() => !disabled && onMouseOver?.(r, c)}
+                style={{
+                  width: cellSize,
+                  height: cellSize,
+                  lineHeight: `${cellSize}px`,
+                  fontSize: fs,
+                  textAlign: "center",
+                  position: "relative",
+                  background: bg,
+                  borderRight: border,
+                  borderBottom: border,
+                  cursor: disabled ? "default" : "crosshair",
+                  userSelect: "none",
+                }}
+              >
+                {/* 값 */}
+                {!isEmpty && <span style={{ position: "relative", zIndex: 1 }}>{num}</span>}
+
+                {/* 레몬 표시 */}
+                {isLemon && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: lemonFs,
+                      opacity: 0.9,
+                    }}
+                  >
+                    🍋
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
-};
-
-export default Board;
+}
