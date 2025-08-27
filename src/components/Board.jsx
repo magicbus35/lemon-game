@@ -1,21 +1,25 @@
+// src/components/Board.jsx
 import React from "react";
 
 const Board = ({
-  board,
-  lemonCells,
-  selectedCells,
-  hoveredCell,
-  missedCells,
+  board = [],
+  lemonCells = new Set(),
+  selectedCells = new Set(),
+  hoveredCell = null,
+  missedCells = new Set(),
   onMouseDown,
   onMouseOver,
-  disabled,
+  disabled = false,
+  cellSize = 36,      // 보드 크기 조절
 }) => {
   if (!board || board.length === 0) return null;
+
+  const fontSize = Math.max(14, Math.round(cellSize * 0.56));
 
   return (
     <div
       className="grid gap-[1px] select-none"
-      style={{ gridTemplateColumns: `repeat(${board[0].length}, minmax(0, 1fr))` }}
+      style={{ gridTemplateColumns: `repeat(${board[0].length}, ${cellSize}px)` }}
     >
       {board.map((row, rowIndex) =>
         row.map((num, colIndex) => {
@@ -28,35 +32,34 @@ const Board = ({
           return (
             <div
               key={key}
-              onMouseDown={() => !disabled && onMouseDown(rowIndex, colIndex)}
-              onMouseOver={() => !disabled && onMouseOver(rowIndex, colIndex)}
-              className={`relative w-[30px] h-[30px] flex items-center justify-center text-sm border
-                ${
-                  isMissed
-                    ? "bg-red-300"
-                    : isSelected
-                    ? "bg-yellow-300"
-                    : isHovered
-                    ? "bg-gray-200"
-                    : "bg-white"
-                }
-                ${disabled ? "opacity-50" : ""}
-              `}
+              onMouseDown={() => !disabled && onMouseDown?.(rowIndex, colIndex)}
+              onMouseOver={() => !disabled && onMouseOver?.(rowIndex, colIndex)}
+              className={`relative flex items-center justify-center text-sm border
+                ${isMissed ? "bg-red-200"
+                  : isSelected ? "bg-blue-200"
+                  : isHovered ? "bg-green-100"
+                  : "bg-gray-100"}
+                ${disabled ? "opacity-50" : ""}`}
+              style={{ width: cellSize, height: cellSize }}
             >
-              {/* 레몬 배경(숫자가 남아있을 때만 표시) */}
+              {/* 레몬: 원래 위치(롤백). 숫자보다 아래(zIndex 1) */}
               {isLemon && num !== null && (
                 <img
                   src="/images/lemon.png"
                   alt="lemon"
-                  className="absolute inset-0 w-full h-full object-contain opacity-80 pointer-events-none"
+                  className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                  style={{ opacity: 0.9, zIndex: 1 }}
                 />
               )}
 
-              {/* 숫자 */}
-              {num !== null ? (
-                <span className="relative z-10 font-bold select-none">{num}</span>
-              ) : (
-                ""
+              {/* 숫자: 레몬 위(zIndex 2)로 가독성 유지 */}
+              {num !== null && (
+                <span
+                  className="relative font-bold select-none"
+                  style={{ zIndex: 2, fontSize }}
+                >
+                  {num}
+                </span>
               )}
             </div>
           );
