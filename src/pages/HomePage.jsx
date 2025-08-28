@@ -1,34 +1,21 @@
 // src/pages/HomePage.jsx
+import React from "react";
+
 export default function HomePage() {
   return (
-    <div className="max-w-2xl">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-2xl">🍋</span>
-        <h2 className="text-2xl font-bold">레몬 게임 규칙</h2>
-      </div>
-
-      <ul className="space-y-3">
-        <RuleItem index={1} text="두 점을 클릭하여 사각형 영역을 선택합니다" />
-        <RuleItem index={2} text="선택한 영역의 숫자 합이 10이 되면 제거됩니다" />
-        <RuleItem index={3} text="제한 시간 2분 동안 최대한 많은 점수를 획득하세요" />
-        <RuleItem index={4} text="더 이상 10을 만들 수 없으면 자동으로 판이 리셋됩니다" />
-        <RuleItem index={5} text="레몬을 지우면 4점을 더 얻습니다" />
+    <div className="max-w-[800px] mx-auto px-4">
+      <h1 className="text-3xl font-bold mb-4">🍋 레몬게임 규칙</h1>
+      <ul className="list-disc pl-6 space-y-2 text-gray-700 leading-relaxed">
+        <li>보드는 <b>10×17</b> 크기, 칸에는 1~9 숫자가 랜덤으로 채워집니다.</li>
+        <li>마우스 <b>드래그</b> 또는 모바일 <b>두 지점 탭</b>으로 직사각형 선택.</li>
+        <li>선택 영역의 합이 <b>정확히 10</b>이면 그 칸들이 제거됩니다.</li>
+        <li>점수 = 선택 칸 수 + <b>레몬칸(+4)</b>.</li>
+        <li>레몬칸은 매 보드 리셋마다 <b>정확히 10칸</b> 랜덤 배치.</li>
+        <li><b>120초 제한 시간</b> 안에 점수를 최대화하세요.</li>
+        <li>정답이 없으면 보드가 즉시 리셋됩니다.</li>
+        <li>타임업 시 놓친 정답이 <span className="text-red-500">빨간 테두리</span>로 표시됩니다.</li>
       </ul>
-
-      <p className="mt-6 text-gray-500 text-sm">
-        Tip: 카운트다운 3초 후 게임 시작. 텍스트 드래그 방지 & 빠른 다시하기 버튼 지원.
-      </p>
+      <p className="mt-6 text-gray-600 text-sm">💡 모바일에서 화면 폭에 따라 셀 크기가 자동 조절됩니다.</p>
     </div>
-  );
-}
-
-function RuleItem({ index, text }) {
-  return (
-    <li className="flex items-start gap-3">
-      <span className="mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-500 text-white text-sm font-bold">
-        {index}
-      </span>
-      <p className="leading-7">{text}</p>
-    </li>
   );
 }

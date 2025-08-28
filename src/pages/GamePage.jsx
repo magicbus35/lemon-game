@@ -1,21 +1,26 @@
-// src/pages/GamePage.jsx
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Board from "../components/Board";
 import Countdown from "../components/Countdown";
 import ScoreDisplay from "../components/ScoreDisplay";
 import Timer from "../components/Timer";
 import { saveScore } from "../services/scoreStore";
-import { logPlayEvent } from "../services/analytics"; // 있으면 사용, 없으면 이 줄 제거하세요.
+import { logPlayEvent } from "../services/analytics";
 
 const ROWS = 10;
 const COLS = 17;
-const GAME_DURATION = 120;
+const GAME_DURATION = 120; // 120초
+const LEMON_COUNT = 10;
 
 const bonusMessages = [
   "이봐, 친구! 그거 알아? 버디의 본캐는 버디1204라는 놀라운 사실을!",
   '이봐, 친구! 그거 알아? 블레는 무려 카운터를 "못"친다는 놀라운 사실을!',
   "이봐, 친구! 그거 알아? 주급이 무려 200만을 넘는 사람이 있다는 놀라운 사실을!",
 ];
+
+const NICK_RE = /^(?=.{2,16}$)[가-힣A-Za-z0-9_-]+$/;
+const FORBIDDEN = ["익명", "anonymous", "anon"];
+
+const key = (r, c) => `${r}-${c}`;
 
 const generateBoard = (rows, cols) =>
   Array.from({ length: rows }, () =>
@@ -24,83 +29,101 @@ const generateBoard = (rows, cols) =>
 
 const generateLemonCells = (rows, cols, count = 10) => {
   const maxCount = Math.min(count, rows * cols);
-  const all = [];
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) all.push(`${r}-${c}`);
-  for (let i = all.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [all[i], all[j]] = [all[j], all[i]];
+  const used = new Set();
+  while (used.size < maxCount) used.add(Math.floor(Math.random() * rows * cols));
+  const out = new Set();
+  for (const p of used) {
+    const r = Math.floor(p / cols);
+    const c = p % cols;
+    out.add(key(r, c));
   }
-  return new Set(all.slice(0, maxCount));
+  return out;
 };
 
-const hasValidMove = (board) => {
-  const R = board.length;
-  const C = board[0].length;
+function buildPrefix(board) {
+  const R = board.length, C = board[0].length;
   const ps = Array.from({ length: R + 1 }, () => Array(C + 1).fill(0));
-  for (let r = 0; r < R; r++) for (let c = 0; c < C; c++)
-    ps[r + 1][c + 1] = (board[r][c] || 0) + ps[r][c + 1] + ps[r + 1][c] - ps[r][c];
-  const sumRect = (r1, c1, r2, c2) =>
-    ps[r2 + 1][c2 + 1] - ps[r1][c2 + 1] - ps[r2 + 1][c1] + ps[r1][c1];
-  for (let r1 = 0; r1 < R; r1++)
-    for (let c1 = 0; c1 < C; c1++)
-      for (let r2 = r1; r2 < R; r2++)
-        for (let c2 = c1; c2 < C; c2++)
-          if (sumRect(r1, c1, r2, c2) === 10) return true;
+  for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+    const v = board[r][c] ?? 0;
+    ps[r + 1][c + 1] = v + ps[r][c + 1] + ps[r + 1][c] - ps[r][c];
+  }
+  return ps;
+}
+function sumRect(ps, r1, c1, r2, c2) {
+  const R1 = Math.min(r1, r2), C1 = Math.min(c1, c2);
+  const R2 = Math.max(r1, r2), C2 = Math.max(c1, c2);
+  return ps[R2 + 1][C2 + 1] - ps[R1][C2 + 1] - ps[R2 + 1][C1] + ps[R1][C1];
+}
+function hasValidMove(board) {
+  const R = board.length, C = board[0].length, ps = buildPrefix(board);
+  for (let r1 = 0; r1 < R; r1++) for (let c1 = 0; c1 < C; c1++)
+    for (let r2 = r1; r2 < R; r2++) for (let c2 = c1; c2 < C; c2++)
+      if (sumRect(ps, r1, c1, r2, c2) === 10) return true;
   return false;
-};
+}
+function findAllTenRects(board) {
+  const R = board.length, C = board[0].length, ps = buildPrefix(board);
+  const res = [];
+  for (let r1 = 0; r1 < R; r1++) for (let c1 = 0; c1 < C; c1++)
+    for (let r2 = r1; r2 < R; r2++) for (let c2 = c1; c2 < C; c2++)
+      if (sumRect(ps, r1, c1, r2, c2) === 10) res.push({ r1, c1, r2, c2 });
+  return res;
+}
 
 export default function GamePage() {
-  // 보드/게임 상태
-  const [board, setBoard] = useState([]);
-  const [lemonCells, setLemonCells] = useState(new Set());
-  const [selectedCells, setSelectedCells] = useState(new Set());
-  const [hoveredCell, setHoveredCell] = useState(null);
-  const [missedCells, setMissedCells] = useState(new Set());
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState(null);
-
+  const [board, setBoard] = useState(() => generateBoard(ROWS, COLS));
+  const [lemonCells, setLemonCells] = useState(() =>
+    generateLemonCells(ROWS, COLS, LEMON_COUNT)
+  );
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [gameStarted, setGameStarted] = useState(false);
-  const [isCountingDown, setIsCountingDown] = useState(false);
-  const [countdown, setCountdown] = useState(0);
-  const [bonusMessage, setBonusMessage] = useState("");
 
+  const [started, setStarted] = useState(false);
+  const [countdown, setCountdown] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
+  const timerRef = useRef(null);
+
+  const [selectRect, setSelectRect] = useState(null);
+  const selectingRef = useRef(null);
+  const [missedRects, setMissedRects] = useState([]);
   const [gameOver, setGameOver] = useState(false);
-  const [playerName, setPlayerName] = useState("");
 
-  // 모바일 대응: 화면 폭에 따라 cellSize 자동 조절
+  const [bonusMsg, setBonusMsg] = useState("");
+  const pickRandomMessage = () =>
+    bonusMessages[Math.floor(Math.random() * bonusMessages.length)];
+
+  const boardRef = useRef(board);
+  useEffect(() => { boardRef.current = board; }, [board]);
+
+  // 세션 ID는 한 판 동안 유지
+  const sessionIdRef = useRef(crypto?.randomUUID?.() ?? null);
+
+  // 반응형 셀 크기
   const [cellSize, setCellSize] = useState(36);
+  const wrapRef = useRef(null);
   useEffect(() => {
-    const applySize = () => {
-      const w = window.innerWidth;
-      if (w <= 360) setCellSize(26);
-      else if (w <= 420) setCellSize(28);
-      else if (w <= 480) setCellSize(30);
-      else if (w <= 560) setCellSize(32);
-      else setCellSize(36);
-    };
-    applySize();
-    window.addEventListener("resize", applySize);
-    return () => window.removeEventListener("resize", applySize);
+    const el = wrapRef.current; if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const w = Math.min(el.clientWidth, 980);
+      const size = Math.floor((w - 4) / COLS);
+      setCellSize(Math.max(24, Math.min(48, size)));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
-  // 닉네임 검증
-  const NICK_RE = /^(?=.{2,16}$)[가-힣A-Za-z0-9_-]+$/;
-  const FORBIDDEN = ["익명", "anonymous", "anon"];
-  const trimmedName = (playerName || "").trim();
-  const isNickValid =
-    trimmedName.length > 0 &&
-    NICK_RE.test(trimmedName) &&
-    !FORBIDDEN.some((w) => trimmedName.toLowerCase() === w);
+  // 최소 1해답 보장
+  useEffect(() => {
+    let b = board, tries = 0;
+    while (!hasValidMove(b) && tries < 10) { b = generateBoard(ROWS, COLS); tries++; }
+    if (tries > 0) setBoard(b);
+    // eslint-disable-next-line
+  }, []);
 
-  // 성공 사운드
   const successAudioRef = useRef(null);
   useEffect(() => {
     try {
       const a = new Audio("/sound/success.mp3");
-      a.preload = "auto";
-      a.load();
+      a.preload = "auto"; a.load();
       successAudioRef.current = a;
     } catch {}
   }, []);
@@ -110,391 +133,214 @@ export default function GamePage() {
       if (a) { a.currentTime = 0; a.play().catch(() => {}); }
     } catch {}
   };
-  const prevScoreRef = useRef(0);
-  useEffect(() => {
-    if (typeof score === "number" && score > prevScoreRef.current) playSuccess();
-    prevScoreRef.current = typeof score === "number" ? score : prevScoreRef.current;
-  }, [score]);
 
-  // (선택) 분석: 한 판 세션 id
-  const [runId, setRunId] = useState(null);
-  const [startedAt, setStartedAt] = useState(0);
+  const lastTapRef = useRef(null);
 
-  // ▶ 시작 버튼: 카운트다운만 시작 (보드는 0초에 생성)
-  const startGame = () => {
+  const finalizeRect = (rect) => {
+    const ps = buildPrefix(board);
+    if (sumRect(ps, rect.r1, rect.c1, rect.r2, rect.c2) !== 10) return;
+
+    const r1 = Math.min(rect.r1, rect.r2), c1 = Math.min(rect.c1, rect.c2);
+    const r2 = Math.max(rect.r1, rect.r2), c2 = Math.max(rect.c1, rect.c2);
+
+    const next = board.map((row) => row.slice());
+    let add = 0;
+    const lemons = new Set(lemonCells);
+
+    for (let r = r1; r <= r2; r++) {
+      for (let c = c1; c <= c2; c++) {
+        if (next[r][c] !== null) {
+          add += 1;
+          const k = key(r, c);
+          if (lemons.has(k)) { add += 4; lemons.delete(k); }
+          next[r][c] = null;
+        }
+      }
+    }
+
+    if (add > 0) {
+      setBoard(next);
+      setLemonCells(lemons);
+      setScore((v) => v + add);
+      playSuccess();
+
+      setTimeout(() => {
+        if (!hasValidMove(next)) {
+          setBoard(generateBoard(ROWS, COLS));
+          setLemonCells(generateLemonCells(ROWS, COLS, LEMON_COUNT));
+        }
+      }, 0);
+    }
+  };
+
+  const handlers = {
+    onStart: (r, c) => {
+      if (!started || gameOver) return;
+      const now = Date.now();
+      if (lastTapRef.current && now - lastTapRef.current.t < 1200) {
+        selectingRef.current = { r1: lastTapRef.current.r, c1: lastTapRef.current.c, r2: r, c2: c };
+        setSelectRect({ ...selectingRef.current });
+      } else {
+        selectingRef.current = { r1: r, c1: c, r2: r, c2: c };
+        setSelectRect({ ...selectingRef.current });
+      }
+    },
+    onMove: (r, c) => {
+      if (!started || gameOver) return;
+      if (!selectingRef.current) return;
+      selectingRef.current.r2 = r; selectingRef.current.c2 = c;
+      setSelectRect({ ...selectingRef.current });
+    },
+    onEnd: () => {
+      if (!started || gameOver) return;
+      const rect = selectingRef.current; selectingRef.current = null;
+      if (!rect) { setSelectRect(null); return; }
+      const single = rect.r1 === rect.r2 && rect.c1 === rect.c2;
+      if (single) {
+        lastTapRef.current = { r: rect.r1, c: rect.c1, t: Date.now() };
+        setSelectRect(null);
+        return;
+      }
+      setSelectRect(null);
+      finalizeRect(rect);
+      lastTapRef.current = null;
+    },
+  };
+
+  const startGame = async () => {
     setScore(0);
-    prevScoreRef.current = 0;
-
-    setBoard([]);               // 카운트다운 동안 보드 비표시
-    setLemonCells(new Set());
-    setSelectedCells(new Set());
-    setHoveredCell(null);
-    setMissedCells(new Set());  // 빨간칸 초기화
-    setDragStart(null);
-
-    setIsCountingDown(true);
-    setCountdown(3);
-    setGameStarted(true);
-    setTimeLeft(0);
+    setMissedRects([]);
     setGameOver(false);
-    setPlayerName("");
-    setBonusMessage(bonusMessages[Math.floor(Math.random() * bonusMessages.length)]);
+    setBoard(generateBoard(ROWS, COLS));
+    setLemonCells(generateLemonCells(ROWS, COLS, LEMON_COUNT));
+    setBonusMsg(pickRandomMessage());
 
-    // 분석(start)
-    try {
-      const id =
-        (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
-        Math.random().toString(36).slice(2);
-      setRunId(id);
-      setStartedAt(Date.now());
-      if (typeof logPlayEvent === "function") {
-        logPlayEvent({
-          event: "start",
-          session_id: id,
-          user_agent: navigator.userAgent,
-          referrer: document.referrer || "",
-        });
-      }
-    } catch {}
-  };
-
-  // ⏳ 카운트다운 → 0이 되는 순간 보드/레몬 생성 + 타이머 시작
-  useEffect(() => {
-    if (isCountingDown && countdown > 0) {
-      const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
-      return () => clearTimeout(t);
-    } else if (isCountingDown && countdown === 0) {
-      setBoard(generateBoard(ROWS, COLS));
-      setLemonCells(generateLemonCells(ROWS, COLS, 10));
-      setTimeLeft(GAME_DURATION);
-      setIsCountingDown(false);
-    }
-  }, [isCountingDown, countdown]);
-
-  // ⏱ 타이머
-  useEffect(() => {
-    if (!gameStarted || timeLeft <= 0) return;
-    const id = setInterval(() => setTimeLeft((x) => (x > 0 ? x - 1 : 0)), 1000);
-    return () => clearInterval(id);
-  }, [gameStarted, timeLeft]);
-
-  // 🟥 타임업 시 놓친 정답 계산
-  useEffect(() => {
-    if (timeLeft === 0 && gameStarted && board.length > 0 && !gameOver) {
-      const snap = board.map((row) => [...row]);
-      const R = snap.length, C = snap[0].length;
-      const missed = new Set();
-      for (let r1 = 0; r1 < R; r1++) {
-        for (let c1 = 0; c1 < C; c1++) {
-          for (let r2 = r1; r2 < R; r2++) {
-            for (let c2 = c1; c2 < C; c2++) {
-              let sum = 0; const cells = [];
-              for (let r = r1; r <= r2; r++) {
-                for (let c = c1; c <= c2; c++) {
-                  if (snap[r][c] !== null) { sum += snap[r][c]; cells.push(`${r}-${c}`); }
-                }
+    setCountdown(3);
+    const id = setInterval(() => {
+      setCountdown((n) => {
+        if (n === 1) {
+          clearInterval(id);
+          setCountdown(null);
+          setStarted(true);
+          setTimeLeft(GAME_DURATION);
+          if (timerRef.current) clearInterval(timerRef.current);
+          timerRef.current = setInterval(() => {
+            setTimeLeft((prev) => {
+              if (prev <= 1) {
+                clearInterval(timerRef.current);
+                setStarted(false);
+                const rects = findAllTenRects(boardRef.current).slice(0, 50);
+                setMissedRects(rects);
+                setGameOver(true);
+                logPlayEvent("end", { session_id: sessionIdRef.current, duration_ms: GAME_DURATION * 1000 });
               }
-              if (sum === 10) cells.forEach((k) => missed.add(k));
-            }
-          }
+              return prev - 1;
+            });
+          }, 1000);
         }
-      }
-      setMissedCells(missed);
-      setGameOver(true);
-
-      // 분석(end)
-      try {
-        if (runId && startedAt && typeof logPlayEvent === "function") {
-          logPlayEvent({
-            event: "end",
-            session_id: runId,
-            score,
-            duration_ms: Date.now() - startedAt,
-            user_agent: navigator.userAgent,
-          });
-        }
-      } catch {}
-    }
-  }, [timeLeft, gameStarted, board, gameOver, runId, startedAt, score]);
-
-  // 🖱️ 드래그 종료
-  useEffect(() => {
-    const up = () => {
-      if (!isDragging) return;
-      setIsDragging(false);
-      setDragStart(null);
-      if (selectedCells.size === 0) return;
-
-      let sum = 0;
-      let gained = 0;
-      selectedCells.forEach((key) => {
-        const [r, c] = key.split("-").map(Number);
-        const val = board[r][c];
-        if (val !== null) {
-          sum += val;
-          gained += 1;
-          if (lemonCells.has(key)) gained += 4;
-        }
+        return n - 1;
       });
+    }, 1000);
 
-      if (sum === 10) {
-        setScore((s) => s + gained);
-        const next = board.map((row, r) =>
-          row.map((num, c) => (selectedCells.has(`${r}-${c}`) ? null : num))
-        );
-        setBoard(next);
-        const nextLemons = new Set(lemonCells);
-        selectedCells.forEach((k) => nextLemons.delete(k));
-        setLemonCells(nextLemons);
-      }
-      setSelectedCells(new Set());
-    };
-    window.addEventListener("mouseup", up);
-    window.addEventListener("touchend", up, { passive: true });
-    return () => {
-      window.removeEventListener("mouseup", up);
-      window.removeEventListener("touchend", up);
-    };
-  }, [isDragging, selectedCells, board, lemonCells]);
+    try { await logPlayEvent("start", { session_id: sessionIdRef.current }); } catch {}
+  };
 
-  // ♻️ 정답 없으면 즉시 리셋 (카운트다운 중 제외)
+  const [nick, setNick] = useState("");
+  const nickValid = useMemo(() => {
+    const t = (nick || "").trim();
+    const tl = t.toLowerCase();
+    return t.length > 0 && NICK_RE.test(t) && !FORBIDDEN.map(x => x.toLowerCase()).includes(tl);
+  }, [nick]);
+
+  const saveAndGoRanking = async () => {
+    if (!gameOver || !nickValid) return;
+    try {
+      await saveScore(nick.trim(), score);
+      try { await logPlayEvent("save", { session_id: sessionIdRef.current, nickname: nick.trim(), score }); } catch {}
+      window.location.href = "/ranking";
+    } catch (err) {
+      alert("저장 실패: " + (err?.message || String(err)));
+    }
+  };
+
   useEffect(() => {
-    if (gameStarted && !gameOver && board.length > 0 && !isCountingDown) {
-      if (!hasValidMove(board)) {
-        setBoard(generateBoard(ROWS, COLS));
-        setLemonCells(generateLemonCells(ROWS, COLS, 10));
-      }
-    }
-  }, [board, gameStarted, gameOver, isCountingDown]);
-
-  // 드래그 시작/진행 (마우스)
-  const handleMouseDown = (row, col) => {
-    if (!gameStarted || isCountingDown || timeLeft <= 0) return;
-    setIsDragging(true);
-    setDragStart({ row, col });
-    setSelectedCells(new Set([`${row}-${col}`]));
-  };
-  const handleMouseOver = (row, col) => {
-    setHoveredCell(`${row}-${col}`);
-    if (isDragging && dragStart) {
-      const r1 = Math.min(dragStart.row, row);
-      const r2 = Math.max(dragStart.row, row);
-      const c1 = Math.min(dragStart.col, col);
-      const c2 = Math.max(dragStart.col, col);
-      const ns = new Set();
-      for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) ns.add(`${r}-${c}`);
-      setSelectedCells(ns);
-    }
-  };
-
-  // 드래그 시작/진행 (터치) — Board에서 onTouchStart/Move로 호출
-  const handleTouchStart = (row, col, e) => {
-    if (!gameStarted || isCountingDown || timeLeft <= 0) return;
-    e?.preventDefault?.();
-    setIsDragging(true);
-    setDragStart({ row, col });
-    setSelectedCells(new Set([`${row}-${col}`]));
-  };
-  const handleTouchMove = (row, col, e) => {
-    e?.preventDefault?.();
-    setHoveredCell(`${row}-${col}`);
-    if (isDragging && dragStart) {
-      const r1 = Math.min(dragStart.row, row);
-      const r2 = Math.max(dragStart.row, row);
-      const c1 = Math.min(dragStart.col, col);
-      const c2 = Math.max(dragStart.col, col);
-      const ns = new Set();
-      for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) ns.add(`${r}-${c}`);
-      setSelectedCells(ns);
-    }
-  };
-
-  const isPreGame = !gameStarted && !isCountingDown && board.length === 0;
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
 
   return (
-    <div className="w-full">
-      {/* 중앙 제목 */}
-      <h1 className="text-3xl font-bold mb-6 flex items-center gap-2 justify-center text-center">
-        🍋 레몬게임
-      </h1>
+    <div ref={wrapRef} className="max-w-[1100px] mx-auto px-4">
+      <h2 className="text-2xl font-bold flex items-center gap-2 mb-4"><span>🍋</span>레몬게임</h2>
 
-      {/* 단일 컬럼: 위(보드/게임시작), 아래(규칙) — 모두 중앙 */}
-      <div className="flex flex-col items-center gap-6">
-        {/* 위: 보드/게임시작 카드 */}
-        <div className="w-full max-w-[820px]">
-          {isPreGame ? (
-            <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6 shadow-md text-center">
-              <p className="text-gray-700 mb-4">
-                규칙을 확인한 뒤 <b>게임 시작</b>을 누르면 3초 후에 시작합니다.
-              </p>
-              <div className="flex justify-center">
-                <button
-                  onClick={startGame}
-                  className="w-full sm:w-auto px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
-                >
-                  🍋 게임 시작
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 sm:p-6 shadow-md">
-              {/* 점수/타이머 */}
-              <div className="flex justify-center gap-6 sm:gap-8 mb-4">
-                <ScoreDisplay score={score} />
-                <Timer timeLeft={timeLeft} />
-              </div>
+      <div className="grid grid-cols-2 gap-3">
+        <ScoreDisplay score={score} />
+        <Timer timeLeft={timeLeft} />
+      </div>
 
-              {/* 카운트다운 (이때는 보드가 없음) */}
-              {isCountingDown && countdown > 0 && (
-                <div className="mb-3 flex justify-center">
-                  <Countdown countdown={countdown} />
-                </div>
-              )}
+      <div className="mt-3 flex items-center gap-2">
+        <button className="px-4 py-2 rounded-lg bg-black text-white" onClick={startGame}>게임 시작</button>
+        <button
+          className="px-4 py-2 rounded-lg border"
+          onClick={() => {
+            setScore(0); setMissedRects([]); setGameOver(false);
+            setBoard(generateBoard(ROWS, COLS));
+            setLemonCells(generateLemonCells(ROWS, COLS, LEMON_COUNT));
+            setStarted(true); setTimeLeft(GAME_DURATION);
+            setBonusMsg(pickRandomMessage());
+          }}
+        >
+          다시하기
+        </button>
+        <span className="text-gray-500 text-sm">드래그 또는 두 지점 탭으로 직사각형 선택</span>
+      </div>
 
-              {/* 보드: 카운트다운 종료 후에만 생성/표시 */}
-              {board.length > 0 && (
-                <div className="flex flex-col items-center">
-                  <div className="p-2 sm:p-3 bg-green-100 border-2 border-green-400 rounded-lg overflow-auto mx-auto touch-none">
-                    <Board
-                      board={board}
-                      lemonCells={lemonCells}
-                      selectedCells={selectedCells}
-                      hoveredCell={hoveredCell}
-                      missedCells={missedCells}
-                      onMouseDown={handleMouseDown}
-                      onMouseOver={handleMouseOver}
-                      onTouchStartCell={handleTouchStart} // ← 터치 지원
-                      onTouchMoveCell={handleTouchMove}   // ← 터치 지원
-                      disabled={!gameStarted || isCountingDown || timeLeft <= 0}
-                      cellSize={cellSize}
-                    />
-                  </div>
-                  <p className="mt-2 text-center text-gray-400 text-xs italic">"{bonusMessage}"</p>
-                </div>
-              )}
+      <div className="mt-4">
+        <Board
+          rows={ROWS}
+          cols={COLS}
+          board={board}
+          lemonCells={lemonCells}
+          cellSize={cellSize}
+          selectingRect={selectRect}
+          missedRects={missedRects}
+          onStart={handlers.onStart}
+          onMove={handlers.onMove}
+          onEnd={handlers.onEnd}
+        />
+        {bonusMsg && (
+          <div className="mt-2 text-center text-gray-600 italic">
+            “{bonusMsg}”
+          </div>
+        )}
+      </div>
 
-              {/* 종료 UI */}
-              {gameOver && (
-                <div className="mt-6 bg-white border rounded-lg p-5 sm:p-6 shadow text-center">
-                  <p className="text-xl font-bold mb-4">게임 종료! 🍋</p>
-                  <p className="text-lg mb-2">
-                    최종 점수: <span className="text-green-600 font-bold">{score}</span>
-                  </p>
-
-                  <div className="flex flex-col items-center gap-2 mb-4">
-                    <input
-                      type="text"
-                      value={playerName}
-                      onChange={(e) => setPlayerName(e.target.value)}
-                      placeholder="2~16자, 한/영/숫자/_/- (공백 불가)"
-                      maxLength={16}
-                      className="border px-3 py-2 rounded w-60"
-                    />
-                    {!isNickValid && trimmedName.length > 0 && (
-                      <p className="text-red-600 text-sm">
-                        닉네임 형식이 올바르지 않습니다. (2~16자, 한/영/숫자/_/-, 공백 불가, “익명/anonymous/anon” 금지)
-                      </p>
-                    )}
-                    <button
-                      onClick={async () => {
-                        if (!isNickValid) {
-                          alert("닉네임 형식이 올바르지 않습니다.");
-                          return;
-                        }
-                        try {
-                          const ok = await saveScore({ nickname: trimmedName, score });
-                          if (ok) {
-                            try {
-                              if (runId && typeof logPlayEvent === "function") {
-                                logPlayEvent({
-                                  event: "save",
-                                  session_id: runId,
-                                  nickname: trimmedName,
-                                  score,
-                                  user_agent: navigator.userAgent,
-                                });
-                              }
-                            } catch {}
-                            try { sessionStorage.setItem("lemon_last_nick", trimmedName); } catch {}
-                            window.location.href = "/ranking";
-                          } else {
-                            alert("등록에 실패했습니다. 잠시 후 다시 시도해주세요.");
-                          }
-                        } catch (err) {
-                          console.error(err);
-                          alert("등록 중 오류가 발생했습니다.");
-                        }
-                      }}
-                      disabled={!isNickValid}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      등록
-                    </button>
-                  </div>
-
-                  <div className="flex justify-center gap-3 sm:gap-4">
-                    <button
-                      onClick={() => { window.location.href = "/ranking"; }}
-                      className="w-full sm:w-auto px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
-                    >
-                      🏆 랭킹 보기
-                    </button>
-                    <button
-                      onClick={startGame}
-                      className="w-full sm:w-auto px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
-                    >
-                      🍋 다시하기
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* 게임 중 빠른 리트 */}
-              {gameStarted && !gameOver && (
-                <div className="mt-6 flex justify-center">
-                  <button
-                    onClick={startGame}
-                    className="w-full sm:w-auto px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
-                  >
-                    🍋 다시하기
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* 아래: 규칙(중앙) */}
-        <div className="w-full max-w-[820px]">
-          <div className="bg-white border rounded-lg p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-2xl">🍋</span>
-              <h2 className="text-xl font-bold">레몬 게임 규칙</h2>
-            </div>
-            <ul className="space-y-3 text-sm sm:text-base">
-              <RuleItem index={1} text="두 점을 탭/클릭하여 사각형 영역을 선택합니다" />
-              <RuleItem index={2} text="선택한 영역의 숫자 합이 10이 되면 제거됩니다" />
-              <RuleItem index={3} text="제한 시간 2분 동안 최대한 많은 점수를 획득하세요" />
-              <RuleItem index={4} text="더 이상 10을 만들 수 없으면 자동으로 판이 리셋됩니다" />
-              <RuleItem index={5} text="레몬을 지우면 4점을 더 얻습니다" />
-            </ul>
-            <p className="mt-4 text-gray-500 text-xs">
-              Tip: 카운트다운 3초 후 게임 시작. 텍스트 드래그 방지 & 빠른 다시하기 버튼 지원.
-            </p>
+      {gameOver && (
+        <div className="mt-4 p-4 border rounded-lg">
+          <div className="text-lg font-bold">
+            ⏰ 타임업! 점수: <span className="text-green-600">{score}</span>
+          </div>
+          <div className="text-sm text-gray-500 mt-1">
+            빨간 테두리는 놓친 정답 예시입니다.
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <label className="text-sm text-gray-600">닉네임</label>
+            <input
+              className="px-3 py-2 border rounded-lg"
+              value={nick}
+              onChange={(e) => setNick(e.target.value)}
+              placeholder="2~16자, 한영숫자, _-"
+            />
+            <button
+              className="px-4 py-2 rounded-lg bg-black text-white disabled:opacity-50"
+              disabled={!nickValid}
+              onClick={saveAndGoRanking}
+            >
+              점수 저장
+            </button>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
+      )}
 
-function RuleItem({ index, text }) {
-  return (
-    <li className="flex items-start gap-3">
-      <span className="mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-500 text-white text-sm font-bold">
-        {index}
-      </span>
-      <p className="leading-7">{text}</p>
-    </li>
+      {Number.isInteger(countdown) && <Countdown countdown={countdown} />}
+    </div>
   );
 }

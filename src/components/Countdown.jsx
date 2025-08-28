@@ -1,11 +1,13 @@
+// src/components/Countdown.jsx
 import React from "react";
 
-const Countdown = ({ countdown }) => {
+export default function Countdown({ countdown }) {
+  if (!Number.isInteger(countdown)) return null;
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-50 select-none">
-      <p className="text-white text-6xl font-bold">{countdown}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+      <div className="text-white text-7xl font-bold animate-pulse">
+        {countdown}
+      </div>
     </div>
   );
-};
-
-export default Countdown;
+}

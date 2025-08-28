@@ -2,77 +2,56 @@
 import { supabase } from "../lib/supabaseClient";
 
 /**
- * 플레이 이벤트 기록
- * @param {Object} payload
- * @param {'start'|'end'|'save'} payload.event
- * @param {string} payload.session_id
- * @param {number} [payload.score]
- * @param {number} [payload.duration_ms]
- * @param {string} [payload.nickname]
- * @param {string} [payload.user_agent]
- * @param {string} [payload.referrer]
- * @returns {Promise<boolean>}
+ * 이벤트 로깅
+ * event: 'start' | 'end' | 'save'
+ * extras: { session_id?: string, nickname?: string, score?: number, duration_ms?: number }
  */
-export async function logPlayEvent(payload = {}) {
+export async function logPlayEvent(event, extras = {}) {
   try {
-    // Supabase 미설정 시 조용히 통과 (빌드/로컬에서 안전)
-    if (!supabase) return true;
+    if (!supabase) return; // 환경 변수 미설정 시 조용히 스킵
 
-    const row = sanitize(payload);
-    const { error } = await supabase
-      .from("play_events")
-      .insert(row)
-      .select("id")
-      .single();
+    const payload = {
+      event, // 'start' | 'end' | 'save'
+      session_id: extras.session_id || (crypto?.randomUUID?.() ?? null),
+      nickname: extras.nickname ?? null,
+      score: typeof extras.score === "number" ? extras.score : null,
+      duration_ms: typeof extras.duration_ms === "number" ? extras.duration_ms : null,
+      user_agent: navigator?.userAgent || null,
+      referrer: document?.referrer || null,
+    };
 
-    if (error) throw error;
-    return true;
+    const { error } = await supabase.from("play_events").insert([payload]);
+    if (error) console.warn("[analytics] insert error:", error.message);
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("[analytics.logPlayEvent] error:", e?.message || e);
-    return false;
+    console.warn("[analytics] failed:", e?.message || e);
   }
 }
 
-/**
- * 시간대별(KST) 집계 가져오기 (옵션)
- * @param {number} limit 최근 N시간 행
- */
-export async function fetchHourlyCounts(limit = 48) {
+/** 시간대별 집계 조회 (KST 뷰: play_counts_hour_kst) */
+export async function fetchHourlyCounts(hours = 24) {
   try {
     if (!supabase) return [];
+
     const { data, error } = await supabase
       .from("play_counts_hour_kst")
-      .select("*")
+      .select("hour_kst, total_events, starts, ends, saves")
       .order("hour_kst", { ascending: false })
-      .limit(limit);
-    if (error) throw error;
-    return data ?? [];
+      .limit(hours);
+
+    if (error) {
+      console.warn("[analytics] fetchHourlyCounts error:", error.message);
+      return [];
+    }
+
+    return (data || []).sort(
+      (a, b) => new Date(a.hour_kst).getTime() - new Date(b.hour_kst).getTime()
+    );
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("[analytics.fetchHourlyCounts] error:", e?.message || e);
+    console.warn("[analytics] fetchHourlyCounts failed:", e?.message || e);
     return [];
   }
 }
 
-// --- helpers ---
-function sanitize(o = {}) {
-  const out = {
-    event: o.event,
-    session_id: o.session_id,
-    score: numOrNull(o.score),
-    duration_ms: numOrNull(o.duration_ms),
-    nickname: strOrNull(o.nickname),
-    user_agent: strOrNull(o.user_agent),
-    referrer: strOrNull(o.referrer),
-  };
-  if (!out.event || !out.session_id) throw new Error("invalid payload");
-  return out;
-}
-function numOrNull(v) {
-  return typeof v === "number" && !Number.isNaN(v) ? v : null;
-}
-function strOrNull(v) {
-  const t = typeof v === "string" ? v.trim() : "";
-  return t || null;
-}
+export const logStart = (extras = {}) => logPlayEvent("start", extras);
+export const logEnd   = (extras = {}) => logPlayEvent("end", extras);
+export const logSave  = (extras = {}) => logPlayEvent("save", extras);

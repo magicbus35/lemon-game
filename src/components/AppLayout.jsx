@@ -1,43 +1,27 @@
-// src/components/AppLayout.jsx
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 
 export default function AppLayout() {
   return (
-    <div className="min-h-screen bg-white select-none">
-      {/* Top Navbar */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b">
-        <div className="max-w-[1100px] mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <img src="/images/lemon.png" alt="lemon" width={24} height={24} draggable="false" />
-            <span className="text-lg font-bold">lemon-game</span>
-          </Link>
-          <nav className="flex items-center gap-2">
-            <NavItem to="/game" icon="🍋" label="레몬게임" />
-            <NavItem to="/ranking" icon="🏆" label="랭킹" />
-          </nav>
+    <div className="min-h-screen grid" style={{ gridTemplateRows: "auto 1fr auto" }}>
+      {/* 상단 네비 */}
+      <nav className="sticky top-0 z-20 backdrop-blur bg-black/50 border-b border-white/10">
+        <div className="container mx-auto px-4 py-2 flex items-center gap-2">
+          <NavLink to="/" className={({ isActive }) => `px-3 py-2 rounded-lg ${isActive ? "bg-white/10 text-white" : "text-slate-200"}`}>홈</NavLink>
+          <NavLink to="/game" className={({ isActive }) => `px-3 py-2 rounded-lg ${isActive ? "bg-white/10 text-white" : "text-slate-200"}`}>게임</NavLink>
+          <NavLink to="/ranking" className={({ isActive }) => `px-3 py-2 rounded-lg ${isActive ? "bg-white/10 text-white" : "text-slate-200"}`}>랭킹</NavLink>
+          <NavLink to="/result" className={({ isActive }) => `px-3 py-2 rounded-lg ${isActive ? "bg-white/10 text-white" : "text-slate-200"}`}>보조</NavLink>
         </div>
-      </header>
+      </nav>
 
-      {/* 뷰포트 기준 가로 중앙 정렬 */}
-      <main className="w-full flex justify-center">
-        <div className="w-full max-w-[1000px] px-4 sm:px-6 md:px-8 py-6 md:py-8">
-          <Outlet />
-        </div>
+      {/* 페이지 콘텐츠 자리 */}
+      <main className="container mx-auto px-4 mt-4">
+        <Outlet />
       </main>
-    </div>
-  );
-}
 
-function NavItem({ to, icon, label }) {
-  return (
-    <NavLink
-      to={to}
-      className={({ isActive }) =>
-        "px-3 py-2 rounded-lg border transition " +
-        (isActive ? "bg-yellow-50 border-yellow-400" : "hover:bg-yellow-50 hover:border-yellow-300")
-      }
-    >
-      {icon} <span className="font-medium">{label}</span>
-    </NavLink>
+      {/* 푸터 */}
+      <footer className="container mx-auto px-4 mt-4 text-sm text-gray-500 pb-8">
+        lemon-game © {new Date().getFullYear()} — 10×17 합=10 퍼즐 · 레몬 +4 보너스
+      </footer>
+    </div>
   );
 }

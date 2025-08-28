@@ -1,18 +1,12 @@
+// src/components/Timer.jsx
 import React from "react";
 
-const Timer = ({ timeLeft }) => {
+export default function Timer({ timeLeft }) {
+  const min = String(Math.floor(timeLeft / 60)).padStart(2, "0");
+  const sec = String(timeLeft % 60).padStart(2, "0");
   return (
-    <div className="bg-white shadow rounded-lg px-8 py-4 text-center">
-      <p className="text-gray-500 text-lg">남은 시간</p>
-      <p
-        className={`text-3xl font-bold ${
-          timeLeft > 10 ? "text-green-600" : "text-red-600"
-        }`}
-      >
-        {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}
-      </p>
+    <div className="px-4 py-2 rounded-lg border text-lg font-bold">
+      남은 시간: <span className="text-red-500">{min}:{sec}</span>
     </div>
   );
-};
-
-export default Timer;
+}
