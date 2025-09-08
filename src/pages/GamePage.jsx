@@ -36,7 +36,41 @@ const generateLemonCells = (rows, cols, count = 10) => {
   return new Set(all.slice(0, maxCount));
 };
 
-// ✅ 직사각형 합이 10이고 내부에 null이 없어야 유효
+/* ----------------------- 보조 유틸 (정확한 판정용) ----------------------- */
+// 드래그 시작/끝으로 직사각형 경계 계산
+const getRectBoundsFromDrag = (dragStart, hoveredCell) => {
+  if (!dragStart) return null;
+  const startR = dragStart.r;
+  const startC = dragStart.c;
+  let endR = startR;
+  let endC = startC;
+  if (hoveredCell) {
+    const [hr, hc] = hoveredCell.split("-").map((n) => Number(n));
+    endR = hr;
+    endC = hc;
+  }
+  const r1 = Math.min(startR, endR);
+  const c1 = Math.min(startC, endC);
+  const r2 = Math.max(startR, endR);
+  const c2 = Math.max(startC, endC);
+  return { r1, c1, r2, c2 };
+};
+
+// 경계로 합/검증 수행 (null 있으면 무효, 값은 Number 강제)
+const sumRectStrict = (board, r1, c1, r2, c2) => {
+  let sum = 0;
+  for (let r = r1; r <= r2; r++) {
+    for (let c = c1; c <= c2; c++) {
+      const v = board[r][c];
+      if (v == null) return { ok: false, sum: 0 };
+      sum += Number(v);
+    }
+  }
+  return { ok: true, sum };
+};
+/* ---------------------------------------------------------------------- */
+
+// ✅ 직사각형 합이 10이고 내부에 null이 없어야 유효 (Number 강제)
 const hasValidMove = (board) => {
   const R = board.length;
   if (!R) return false;
@@ -48,8 +82,8 @@ const hasValidMove = (board) => {
   for (let r = 0; r < R; r++) {
     for (let c = 0; c < C; c++) {
       const v = board[r][c];
-      sumPS[r + 1][c + 1] =
-        (v ?? 0) + sumPS[r][c + 1] + sumPS[r + 1][c] - sumPS[r][c];
+      const nv = v == null ? 0 : Number(v);
+      sumPS[r + 1][c + 1] = nv + sumPS[r][c + 1] + sumPS[r + 1][c] - sumPS[r][c];
       nullPS[r + 1][c + 1] =
         (v == null ? 1 : 0) + nullPS[r][c + 1] + nullPS[r + 1][c] - nullPS[r][c];
     }
@@ -218,24 +252,29 @@ export default function GamePage() {
     return () => clearInterval(id);
   }, [gameStarted, timeLeft]);
 
-  // ✅ 타임아웃 처리
+  // ✅ 타임아웃 처리(미스드 정답 마킹 — Number 강제)
   useEffect(() => {
     if (timeLeft !== 0 || !gameStarted || board.length === 0 || gameOver) return;
 
     const snap = board.map((row) => [...row]);
-    const R = snap.length, C = snap[0].length;
+    const R = snap.length,
+      C = snap[0].length;
     const missed = new Set();
 
     for (let r1 = 0; r1 < R; r1++) {
       for (let c1 = 0; c1 < C; c1++) {
         for (let r2 = r1; r2 < R; r2++) {
           for (let c2 = c1; c2 < C; c2++) {
-            let sum = 0, hasNull = false;
+            let sum = 0;
+            let hasNull = false;
             for (let r = r1; r <= r2 && !hasNull; r++) {
               for (let c = c1; c <= c2; c++) {
                 const v = snap[r][c];
-                if (v == null) { hasNull = true; break; }
-                sum += v;
+                if (v == null) {
+                  hasNull = true;
+                  break;
+                }
+                sum += Number(v);
               }
             }
             if (!hasNull && sum === 10) {
@@ -263,45 +302,71 @@ export default function GamePage() {
     setDragStart({ r, c });
     setSelectedCells(new Set([`${r}-${c}`]));
   }, []);
-  const onDragOver = useCallback((r, c) => {
-    if (!isDragging || !dragStart) return;
-    const { r: r1, c: c1 } = dragStart;
-    const r2 = r, c2 = c;
-    const ns = new Set();
-    for (let rr = Math.min(r1, r2); rr <= Math.max(r1, r2); rr++)
-      for (let cc = Math.min(c1, c2); cc <= Math.max(c1, c2); cc++)
-        ns.add(`${rr}-${cc}`);
-    setSelectedCells(ns);
-    setHoveredCell(`${r}-${c}`);
-  }, [isDragging, dragStart]);
+
+  const onDragOver = useCallback(
+    (r, c) => {
+      if (!isDragging || !dragStart) return;
+      const { r: r1, c: c1 } = dragStart;
+      const r2 = r,
+        c2 = c;
+      const ns = new Set();
+      for (let rr = Math.min(r1, r2); rr <= Math.max(r1, r2); rr++) {
+        for (let cc = Math.min(c1, c2); cc <= Math.max(c1, c2); cc++) {
+          ns.add(`${rr}-${cc}`);
+        }
+      }
+      setSelectedCells(ns);
+      setHoveredCell(`${r}-${c}`);
+    },
+    [isDragging, dragStart]
+  );
+
+  // ✅ 판정은 경계값으로 정확히 계산 (selectedCells는 UI 하이라이트 전용)
   const onDragEnd = useCallback(() => {
     setIsDragging(false);
+    const ds = dragStart;
     setDragStart(null);
-    if (!board.length) {
+
+    if (!board.length || !ds) {
       setSelectedCells(new Set());
       setHoveredCell(null);
       return;
     }
-    let sum = 0, gained = 0;
-    selectedCells.forEach((key) => {
-      const [r, c] = key.split("-").map(Number);
-      const val = board[r][c];
-      if (val !== null) {
-        sum += val;
-        gained += 1;
-        if (lemonCells.has(key)) gained += 4;
-      }
-    });
-    if (sum === 10) {
-      setScore((s) => s + gained);
-      const next = board.map((row, r) =>
-        row.map((num, c) => (selectedCells.has(`${r}-${c}`) ? null : num))
-      );
-      setBoard(next);
+
+    const bounds = getRectBoundsFromDrag(ds, hoveredCell);
+    if (!bounds) {
+      setSelectedCells(new Set());
+      setHoveredCell(null);
+      return;
+    }
+    const { r1, c1, r2, c2 } = bounds;
+
+    const { ok, sum } = sumRectStrict(board, r1, c1, r2, c2);
+
+    if (ok && sum === 10) {
+      let gained = 0;
+      const next = board.map((row) => [...row]);
       const nextLemons = new Set(lemonCells);
-      selectedCells.forEach((key) => nextLemons.delete(key));
+
+      for (let r = r1; r <= r2; r++) {
+        for (let c = c1; c <= c2; c++) {
+          gained += 1;
+          const key = `${r}-${c}`;
+          if (nextLemons.has(key)) gained += 4;
+          next[r][c] = null;
+          nextLemons.delete(key);
+        }
+      }
+
+      setScore((s) => s + gained);
+      setBoard(next);
       setLemonCells(nextLemons);
-      setBonusMessage((prev) => bonusMessages[(bonusMessages.indexOf(prev) + 1) % bonusMessages.length]);
+
+      setBonusMessage((prev) => {
+        const i = bonusMessages.indexOf(prev);
+        return bonusMessages[(i + 1) % bonusMessages.length];
+      });
+
       setTimeout(() => {
         const still = next.map((row) => [...row]);
         if (!hasValidMove(still)) {
@@ -310,9 +375,10 @@ export default function GamePage() {
         }
       }, 50);
     }
+
     setSelectedCells(new Set());
     setHoveredCell(null);
-  }, [board, lemonCells, selectedCells]);
+  }, [board, lemonCells, dragStart, hoveredCell]);
 
   // ✅ 우끼끼(포기) — 원숭이 뿌리고 즉시 종료
   const handleGiveUp = useCallback(() => {
