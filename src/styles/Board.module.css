@@ -1,0 +1,17 @@
+/* Tailwind grid 유틸과 충돌 피하려고 이름을 boardGrid로 */
+.boardGrid {
+  @apply grid;
+  gap: 2px; /* 타일 간격 2px 고정 */
+}
+
+.cell {
+  @apply relative flex items-center justify-center border rounded-md bg-white transition-colors;
+}
+
+.number {
+  @apply relative font-bold select-none text-black;
+}
+
+.lemon {
+  @apply absolute inset-0 w-full h-full object-contain pointer-events-none;
+}

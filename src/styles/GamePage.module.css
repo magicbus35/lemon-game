@@ -1,0 +1,68 @@
+.page {
+  @apply w-full flex justify-center;
+}
+
+.container {
+  @apply w-full max-w-[900px] mx-auto px-4;
+}
+
+.card {
+  @apply bg-green-50 border-2 border-green-300 rounded-lg shadow-md;
+}
+
+.boardCard {
+  @apply p-4 sm:p-6;
+}
+
+/* 중앙(점수/타이머) + 우측(볼륨) */
+.statusBar {
+  @apply relative mb-4;
+}
+
+.statusRow {
+  @apply flex justify-center gap-6 sm:gap-8;
+}
+
+.volWrap {
+  @apply absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2;
+}
+
+.volLabel {
+  @apply text-sm text-gray-600;
+}
+
+.volSlider {
+  @apply h-2;
+}
+
+.countdownRow {
+  @apply mb-3 flex justify-center;
+}
+
+.boardWrap {
+  @apply p-2 sm:p-3 bg-green-100 border-2 border-green-400 rounded-lg overflow-auto mx-auto touch-none;
+}
+
+.title {
+  @apply text-3xl font-bold mb-6 flex items-center gap-2 justify-center text-center;
+}
+
+.rulesCard {
+  @apply rounded-xl border p-4 shadow-sm mt-6;
+}
+
+.ruleBadge {
+  @apply mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-500 text-white text-sm font-bold;
+}
+
+.btn {
+  @apply px-3 py-2 rounded-lg border transition;
+}
+
+.btnPrimary {
+  @apply bg-green-500 hover:bg-green-400 border-green-500 text-white font-semibold;
+}
+
+.btnSecondary {
+  @apply bg-yellow-400 hover:bg-yellow-300 border-yellow-400 font-semibold;
+}
