@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ 추가
+// src/pages/GamePage.jsx
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import Board from "../components/Board";
 import Countdown from "../components/Countdown";
 import ScoreDisplay from "../components/ScoreDisplay";
@@ -38,6 +39,7 @@ const generateLemonCells = (rows, cols, count = 10) => {
 // ✅ 직사각형 합이 10이고 내부에 null이 없어야 유효
 const hasValidMove = (board) => {
   const R = board.length;
+  if (!R) return false;
   const C = board[0].length;
 
   const sumPS = Array.from({ length: R + 1 }, () => Array(C + 1).fill(0));
@@ -71,7 +73,11 @@ const hasValidMove = (board) => {
 };
 
 export default function GamePage() {
-  const navigate = useNavigate(); // ✅ 추가
+  const navigate = useNavigate();
+
+  // 🐒 원숭이 스팸용 컨테이너 & 상태
+  const containerRef = useRef(null);
+  const [monkeys, setMonkeys] = useState([]); // {id,x,y,r,s,delay}
 
   // 게임 보드/상태
   const [board, setBoard] = useState([]);
@@ -97,19 +103,48 @@ export default function GamePage() {
   const [playerName, setPlayerName] = useState(localStorage.getItem("nickname") || "");
   const NICK_RE = /^(?=.{2,16}$)[가-힣A-Za-z0-9_-]+$/;
   const FORBIDDEN = ["익명", "anonymous", "anon"];
-  const trimmedName = (playerName || "").trim();
-  const isNickValid =
-    trimmedName.length > 0 &&
-    NICK_RE.test(trimmedName) &&
-    !FORBIDDEN.some((w) => trimmedName.toLowerCase() === w);
+  const trimmedName = useMemo(() => (playerName || "").trim(), [playerName]);
+  const isNickValid = useMemo(
+    () =>
+      trimmedName.length > 0 &&
+      NICK_RE.test(trimmedName) &&
+      !FORBIDDEN.some((w) => trimmedName.toLowerCase() === w),
+    [trimmedName]
+  );
 
-  // 🔊 성공 사운드 볼륨 (기본 0.15)
+  // 🔊 성공 사운드
   const [sfxVol, setSfxVol] = useState(() => {
     const v = Number(localStorage.getItem("sfxVol"));
     return Number.isFinite(v) ? Math.min(Math.max(v, 0), 1) : 0.15;
   });
+  const successAudioRef = useRef(null);
+  useEffect(() => {
+    try {
+      const a = new Audio("/sound/success.mp3");
+      successAudioRef.current = a;
+      a.volume = sfxVol;
+    } catch {}
+  }, []);
+  const playSuccess = useCallback(() => {
+    const a = successAudioRef.current;
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      a.play();
+    } catch {}
+  }, []);
+  const prevScoreRef = useRef(0);
+  useEffect(() => {
+    if (typeof score === "number" && score > prevScoreRef.current) playSuccess();
+    prevScoreRef.current = typeof score === "number" ? score : prevScoreRef.current;
+  }, [score, playSuccess]);
+  useEffect(() => {
+    localStorage.setItem("sfxVol", String(sfxVol));
+    const a = successAudioRef.current;
+    if (a) a.volume = sfxVol;
+  }, [sfxVol]);
 
-  // 셀 크기 반응형
+  // ✅ 셀 크기(반응형)
   const [cellSize, setCellSize] = useState(36);
   useEffect(() => {
     const applySize = () => {
@@ -125,36 +160,25 @@ export default function GamePage() {
     return () => window.removeEventListener("resize", applySize);
   }, []);
 
-  // 효과음
-  const successAudioRef = useRef(null);
-  useEffect(() => {
-    try {
-      const a = new Audio("/sound/success.mp3");
-      successAudioRef.current = a;
-      a.volume = sfxVol;
-    } catch {}
-  }, []); // 1회
-
-  const playSuccess = () => {
-    const a = successAudioRef.current;
-    if (!a) return;
-    try { a.currentTime = 0; a.play(); } catch {}
-  };
-  const prevScoreRef = useRef(0);
-  useEffect(() => {
-    if (typeof score === "number" && score > prevScoreRef.current) playSuccess();
-    prevScoreRef.current = typeof score === "number" ? score : prevScoreRef.current;
-  }, [score]);
-
-  // 볼륨 반영
-  useEffect(() => {
-    localStorage.setItem("sfxVol", String(sfxVol));
-    const a = successAudioRef.current;
-    if (a) a.volume = sfxVol;
-  }, [sfxVol]);
+  // 🐒 아이콘 생성
+  const sprinkleMonkeys = useCallback((count = 140) => {
+    const el = containerRef.current;
+    if (!el) return;
+    const { width, height } = el.getBoundingClientRect();
+    const pad = 8;
+    const items = Array.from({ length: count }, (_, i) => ({
+      id: i,
+      x: Math.random() * Math.max(0, width - pad * 2) + pad,
+      y: Math.random() * Math.max(0, height - pad * 2) + pad,
+      r: Math.floor(Math.random() * 360),
+      s: 0.9 + Math.random() * 0.5,
+      delay: Math.floor(Math.random() * 500),
+    }));
+    setMonkeys(items);
+  }, []);
 
   // 게임 시작(카운트다운)
-  const startGame = () => {
+  const startGame = useCallback(() => {
     setGameStarted(false);
     setIsCountingDown(true);
     setCountdown(3);
@@ -166,7 +190,8 @@ export default function GamePage() {
     setMissedCells(new Set());
     setGameOver(false);
     setScore(0);
-  };
+    setMonkeys([]); // 새 게임 시 원숭이 제거
+  }, []);
 
   // 카운트다운
   useEffect(() => {
@@ -174,12 +199,11 @@ export default function GamePage() {
     if (countdown > 0) {
       const t = setTimeout(() => setCountdown((x) => (x > 0 ? x - 1 : 0)), 1000);
       return () => clearTimeout(t);
-    } else if (isCountingDown && countdown === 0) {
-      setBoard(generateBoard(ROWS, COLS));
-      setLemonCells(generateLemonCells(ROWS, COLS, 10));
-      setTimeLeft(GAME_DURATION);
-      setIsCountingDown(false);
     }
+    setBoard(generateBoard(ROWS, COLS));
+    setLemonCells(generateLemonCells(ROWS, COLS, 10));
+    setTimeLeft(GAME_DURATION);
+    setIsCountingDown(false);
   }, [isCountingDown, countdown]);
 
   // 카운트다운 끝나면 시작
@@ -194,53 +218,52 @@ export default function GamePage() {
     return () => clearInterval(id);
   }, [gameStarted, timeLeft]);
 
-  // ✅ 타임아웃: 빈칸 포함 직사각형 제외, 숫자칸만 missed
+  // ✅ 타임아웃 처리
   useEffect(() => {
-    if (timeLeft === 0 && gameStarted && board.length > 0 && !gameOver) {
-      const snap = board.map((row) => [...row]);
-      const R = snap.length, C = snap[0].length;
-      const missed = new Set();
+    if (timeLeft !== 0 || !gameStarted || board.length === 0 || gameOver) return;
 
-      for (let r1 = 0; r1 < R; r1++) {
-        for (let c1 = 0; c1 < C; c1++) {
-          for (let r2 = r1; r2 < R; r2++) {
-            for (let c2 = c1; c2 < C; c2++) {
-              let sum = 0;
-              let hasNull = false;
-              for (let r = r1; r <= r2 && !hasNull; r++) {
-                for (let c = c1; c <= c2; c++) {
-                  const v = snap[r][c];
-                  if (v == null) { hasNull = true; break; }
-                  sum += v;
-                }
+    const snap = board.map((row) => [...row]);
+    const R = snap.length, C = snap[0].length;
+    const missed = new Set();
+
+    for (let r1 = 0; r1 < R; r1++) {
+      for (let c1 = 0; c1 < C; c1++) {
+        for (let r2 = r1; r2 < R; r2++) {
+          for (let c2 = c1; c2 < C; c2++) {
+            let sum = 0, hasNull = false;
+            for (let r = r1; r <= r2 && !hasNull; r++) {
+              for (let c = c1; c <= c2; c++) {
+                const v = snap[r][c];
+                if (v == null) { hasNull = true; break; }
+                sum += v;
               }
-              if (!hasNull && sum === 10) {
-                for (let r = r1; r <= r2; r++) {
-                  for (let c = c1; c <= c2; c++) {
-                    missed.add(`${r}-${c}`);
-                  }
+            }
+            if (!hasNull && sum === 10) {
+              for (let r = r1; r <= r2; r++) {
+                for (let c = c1; c <= c2; c++) {
+                  missed.add(`${r}-${c}`);
                 }
               }
             }
           }
         }
       }
-
-      setMissedCells(missed);
-      setSelectedCells(new Set());
-      setHoveredCell(null);
-      setGameStarted(false);  // ✅ 종료 화면 보이게
-      setGameOver(true);
     }
+
+    setMissedCells(missed);
+    setSelectedCells(new Set());
+    setHoveredCell(null);
+    setGameStarted(false);
+    setGameOver(true);
   }, [timeLeft, gameStarted, board, gameOver]);
 
   // 드래그
-  const onDragStart = (r, c) => {
+  const onDragStart = useCallback((r, c) => {
     setIsDragging(true);
     setDragStart({ r, c });
     setSelectedCells(new Set([`${r}-${c}`]));
-  };
-  const onDragOver = (r, c) => {
+  }, []);
+  const onDragOver = useCallback((r, c) => {
     if (!isDragging || !dragStart) return;
     const { r: r1, c: c1 } = dragStart;
     const r2 = r, c2 = c;
@@ -250,7 +273,7 @@ export default function GamePage() {
         ns.add(`${rr}-${cc}`);
     setSelectedCells(ns);
     setHoveredCell(`${r}-${c}`);
-  };
+  }, [isDragging, dragStart]);
   const onDragEnd = useCallback(() => {
     setIsDragging(false);
     setDragStart(null);
@@ -259,8 +282,7 @@ export default function GamePage() {
       setHoveredCell(null);
       return;
     }
-    let sum = 0;
-    let gained = 0;
+    let sum = 0, gained = 0;
     selectedCells.forEach((key) => {
       const [r, c] = key.split("-").map(Number);
       const val = board[r][c];
@@ -279,11 +301,7 @@ export default function GamePage() {
       const nextLemons = new Set(lemonCells);
       selectedCells.forEach((key) => nextLemons.delete(key));
       setLemonCells(nextLemons);
-      setBonusMessage((prev) => {
-        const i = bonusMessages.indexOf(prev);
-        const j = (i + 1) % bonusMessages.length;
-        return bonusMessages[j];
-      });
+      setBonusMessage((prev) => bonusMessages[(bonusMessages.indexOf(prev) + 1) % bonusMessages.length]);
       setTimeout(() => {
         const still = next.map((row) => [...row]);
         if (!hasValidMove(still)) {
@@ -296,41 +314,42 @@ export default function GamePage() {
     setHoveredCell(null);
   }, [board, lemonCells, selectedCells]);
 
-  const handleMouseDown = (r, c) => onDragStart(r, c);
-  const handleMouseOver = (r, c) => onDragOver(r, c);
-  const handleMouseUpAnywhere = useCallback(() => onDragEnd(), [onDragEnd]);
+  // ✅ 우끼끼(포기) — 원숭이 뿌리고 즉시 종료
+  const handleGiveUp = useCallback(() => {
+    if (!gameStarted || gameOver) return;
+    sprinkleMonkeys(140);
+    setTimeLeft(0);
+  }, [gameStarted, gameOver, sprinkleMonkeys]);
+
+  // 드래그 종료 리스너(드래그 중에만)
   useEffect(() => {
-    const up = () => handleMouseUpAnywhere();
+    if (!isDragging) return;
+    const up = () => onDragEnd();
     window.addEventListener("mouseup", up);
     window.addEventListener("touchend", up);
     return () => {
       window.removeEventListener("mouseup", up);
       window.removeEventListener("touchend", up);
     };
-  }, [handleMouseUpAnywhere]);
+  }, [isDragging, onDragEnd]);
 
+  const handleMouseDown = (r, c) => onDragStart(r, c);
+  const handleMouseOver = (r, c) => onDragOver(r, c);
   const handleTouchStart = (r, c) => onDragStart(r, c);
   const handleTouchMove = (r, c) => onDragOver(r, c);
 
   // 점수 저장 → 저장 성공 시 랭킹 페이지로 이동
   const handleSaveScore = async () => {
-    const trimmed = (playerName || "").trim();
-    const okForm =
-      trimmed.length > 0 &&
-      NICK_RE.test(trimmed) &&
-      !FORBIDDEN.some((w) => trimmed.toLowerCase() === w);
-
-    if (!okForm) {
+    if (!isNickValid) {
       alert("닉네임 형식이 올바르지 않습니다. (2~16자, 한글/영문/숫자/_-)");
       return;
     }
-
-    localStorage.setItem("nickname", trimmed);
+    localStorage.setItem("nickname", trimmedName);
     try {
-      const ok = await saveScore({ nickname: trimmed, score });
+      const ok = await saveScore({ nickname: trimmedName, score });
       if (ok) {
         alert("랭킹 저장 완료!");
-        navigate("/ranking"); // ✅ 여기서 이동
+        navigate("/ranking");
       } else {
         alert("저장 실패. 잠시 후 다시 시도해주세요.");
       }
@@ -339,17 +358,37 @@ export default function GamePage() {
     }
   };
 
-  const isPreGame = !gameStarted && !isCountingDown && board.length === 0;
+  const isPreGame = useMemo(
+    () => !gameStarted && !isCountingDown && board.length === 0,
+    [gameStarted, isCountingDown, board.length]
+  );
 
   return (
     <div className={styles.page}>
-      <div className={styles.container}>
+      <div className={styles.container} ref={containerRef}>
+        {/* 🐒 우끼끼 아이콘들 */}
+        {monkeys.map((m) => (
+          <span
+            key={m.id}
+            className={styles.monkey}
+            style={{
+              left: m.x,
+              top: m.y,
+              transform: `rotate(${m.r}deg) scale(${m.s})`,
+              animationDelay: `${m.delay}ms`,
+            }}
+            aria-hidden
+          >
+            🐒
+          </span>
+        ))}
+
         <h1 className={styles.title}>🍋 레몬게임</h1>
 
         <div className={`${styles.card} ${styles.boardCard}`}>
           {isPreGame ? (
             <div className="text-center">
-              <p className="text-gray-700 mb-4">
+              <p className={styles.leadText}>
                 숫자 블록을 드래그해 <strong>합이 10</strong>이 되는 직사각형을 찾으세요.
               </p>
               <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={startGame}>
@@ -361,8 +400,12 @@ export default function GamePage() {
               {/* 중앙(점수/타이머) + 우측(볼륨) */}
               <div className={styles.statusBar}>
                 <div className={styles.statusRow}>
-                  <ScoreDisplay score={score} />
-                  <Timer timeLeft={timeLeft} />
+                  <div className={styles.metricCard}>
+                    <ScoreDisplay score={score} />
+                  </div>
+                  <div className={styles.metricCard}>
+                    <Timer timeLeft={timeLeft} />
+                  </div>
                 </div>
                 <div className={styles.volWrap}>
                   <span className={styles.volLabel}>🔊</span>
@@ -377,9 +420,7 @@ export default function GamePage() {
                     aria-label="효과음 볼륨"
                     style={{ width: 140 }}
                   />
-                  <span className={styles.volLabel}>
-                    {(sfxVol * 100).toFixed(0)}%
-                  </span>
+                  <span className={styles.volLabel}>{(sfxVol * 100).toFixed(0)}%</span>
                 </div>
               </div>
 
@@ -391,7 +432,8 @@ export default function GamePage() {
 
               {board.length > 0 && (
                 <div className="flex flex-col items-center">
-                  <div className={styles.boardWrap}>
+                  {/* boardWrap은 초록 테두리, boardSurface는 안쪽 바탕(모드별 전환) */}
+                  <div className={`${styles.boardWrap} ${styles.boardSurface}`}>
                     <Board
                       board={board}
                       lemonCells={lemonCells}
@@ -407,18 +449,28 @@ export default function GamePage() {
                     />
                   </div>
 
-                  <p className="mt-2 text-center text-gray-400 text-xs italic">
+                  <p className={`${styles.rulesText} mt-2 text-center text-xs italic`}>
                     "{bonusMessage}"
                   </p>
 
-                  {/* 진행 중 다시하기 */}
+                  {/* 진행 중: 우끼끼(포기) + 다시하기 */}
                   {gameStarted && !isCountingDown && !gameOver && (
-                    <button
-                      className={`${styles.btn} ${styles.btnSecondary} mt-4`}
-                      onClick={startGame}
-                    >
-                      다시하기
-                    </button>
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        className={`${styles.btn} ${styles.btnDanger}`}
+                        onClick={handleGiveUp}
+                        aria-label="포기하고 즉시 종료"
+                        title="포기하고 즉시 종료"
+                      >
+                        🐒 우끼끼
+                      </button>
+                      <button
+                        className={`${styles.btn} ${styles.btnSecondary} ${styles.textAlwaysBlack}`}
+                        onClick={startGame}
+                      >
+                        다시하기
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
@@ -427,7 +479,7 @@ export default function GamePage() {
               {!gameStarted && !isCountingDown && gameOver && (
                 <div className="mt-4 flex flex-col items-center gap-3">
                   <p className="text-lg font-semibold">게임 종료!</p>
-                  <p className="text-gray-700">
+                  <p className={styles.leadText}>
                     최종 점수: <span className="font-bold">{score}</span>
                   </p>
 
@@ -440,7 +492,7 @@ export default function GamePage() {
                       onChange={(e) => setPlayerName(e.target.value)}
                     />
                     <button
-                      className={`${styles.btn} ${styles.btnSecondary}`}
+                      className={`${styles.btn} ${styles.btnSecondary} ${styles.buttonBlackText}`}
                       onClick={handleSaveScore}
                     >
                       점수 저장
@@ -448,10 +500,7 @@ export default function GamePage() {
                   </div>
 
                   {/* 종료 후 다시하기 */}
-                  <button
-                    className={`${styles.btn} ${styles.btnPrimary} mt-2`}
-                    onClick={startGame}
-                  >
+                  <button className={`${styles.btn} ${styles.btnPrimary} mt-2`} onClick={startGame}>
                     다시하기
                   </button>
                 </div>
@@ -463,7 +512,7 @@ export default function GamePage() {
         {/* 규칙 카드 */}
         <div className={styles.rulesCard}>
           <h3 className="text-lg font-semibold mb-3">게임 규칙</h3>
-          <ul className="space-y-2 text-sm text-gray-700">
+          <ul className={`${styles.rulesText} space-y-2 text-sm`}>
             <RuleItem index="1" text="드래그로 사각형을 선택해 숫자의 합이 10이 되면 성공입니다." />
             <RuleItem index="2" text="레몬 칸은 추가 점수를 줍니다." />
             <RuleItem index="3" text="120초 안에 더 높은 점수를 노려보세요!" />

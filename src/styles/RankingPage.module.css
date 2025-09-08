@@ -1,0 +1,81 @@
+/* src/styles/RankingPage.module.css */
+
+/* 중앙 정렬 래퍼 */
+.root {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 1rem; /* 작은 화면 여백 */
+}
+
+/* 테이블 컨테이너 */
+.tableWrap {
+  background: var(--panel-bg);
+  color: var(--table-text);
+  border: 1.5px solid var(--panel-border);
+  border-radius: 12px;
+  /* 작은 화면 대응: 가로 스크롤 허용 */
+  overflow: auto;
+  box-shadow: 0 0 0 1px var(--table-border) inset;
+}
+
+/* 테이블 기본 */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed; /* 셀 너비 안정화 */
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* 헤더 */
+.thead th {
+  background: var(--board-bg);
+  color: var(--table-text);
+  border-bottom: 1.5px solid var(--table-border);
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  position: sticky; /* 긴 목록에서 상단 고정 */
+  top: 0;
+  z-index: 1;
+}
+
+/* 바디 */
+.tbody tr {
+  border-bottom: 1px solid var(--table-border);
+  transition: background-color 120ms ease-in-out;
+}
+.tbody tr:nth-child(odd) {
+  background: var(--table-row);
+}
+.tbody tr:nth-child(even) {
+  background: var(--table-row-alt);
+}
+/* Hover 하이라이트 (눈부심 적은 회색톤) */
+.tbody tr:hover {
+  background: var(--cell-selected);
+}
+
+.tbody tr:last-child {
+  border-bottom: 0;
+}
+
+.tbody td {
+  color: var(--table-text);
+  padding: 10px 12px;
+  vertical-align: middle;
+  /* 긴 닉네임/시간도 한 줄 유지 + 말줄임 처리 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* “내 기록” 배지 */
+.badgeMe {
+  background: var(--cell-selected);
+  color: var(--table-text);
+  border: 1px solid var(--panel-border);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+}

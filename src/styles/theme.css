@@ -1,0 +1,71 @@
+/* src/styles/theme.css */
+
+/* ===== 라이트 팔레트 ===== */
+html {
+  /* 공통 패널/카드 */
+  --panel-bg: #eafff4;          /* 연민트(기존 느낌 유지) */
+  --panel-text: #111827;        /* slate-900 */
+  --panel-border: #34d399;      /* emerald-400 */
+
+  /* 보드 & 셀 */
+  --board-surface: #eafff4;     /* 보드 초록 테두리 안쪽 */
+  --board-bg: #ffffff;
+  --board-border: #34d399;
+  --cell-bg: #ffffff;
+  --cell-text: #111827;
+  --cell-selected: #d1fae5;
+  --cell-miss: #fecaca;
+  --cell-outline: #10b981;
+  --lemon-dot: #f59e0b;
+
+  /* 상단바(점수/타이머/볼륨) */
+  --status-bg: #ffffff;
+  --metric-bg: #ffffff;
+  --metric-text: #111827;
+  --metric-border: #e5e7eb;
+
+  /* 볼륨 슬라이더 */
+  --slider-track: #e5e7eb;
+  --slider-thumb-border: #cbd5e1;
+
+  /* 랭킹 테이블 */
+  --table-row: #ffffff;
+  --table-row-alt: #f8fafc;
+  --table-text: #111827;
+  --table-border: #e5e7eb;
+}
+
+/* ===== 다크 팔레트 (회색 위주, 눈부심 최소화) ===== */
+html.dark {
+  /* 공통 패널/카드 */
+  --panel-bg: #1e1f22;
+  --panel-text: #d1d5db;        /* ▼ 기존 #e6e7eb → 한 톤 다운 */
+  --panel-border: #3a3d40;
+
+  /* 보드 & 셀 */
+  --board-surface: #232427;
+  --board-bg: #2e3136;
+  --board-border: #3a3d40;
+  --cell-bg: #2a2d31;
+  --cell-text: #cbd5e1;         /* ▼ 기존 #e6e7eb → 랭킹과 동일 계열, 덜 눈부심 */
+  --cell-selected: #2f3236;
+  --cell-miss: #4a1f1f;
+  --cell-outline: #4ade80;
+  --lemon-dot: #f59e0b;
+
+  /* 상단바(점수/타이머/볼륨) */
+  --status-bg: #232427;
+  --metric-bg: #2b2d30;
+  --metric-text: #d7dde3;       /* ▼ 기존 #e9edf2 → 살짝 톤다운 */
+  --metric-border: #3a3d40;
+
+  /* 볼륨 슬라이더 */
+  --slider-track: #3a3d40;
+  --slider-thumb-border: #4b5563;
+
+  /* 랭킹 테이블 */
+  --table-row: #1f2124;
+  --table-row-alt: #232427;
+  --table-text: #cbd5e1;        /* ▼ 기존 #e6e7eb → 보드 숫자와 동일 톤 */
+  --table-border: #475569;
+}

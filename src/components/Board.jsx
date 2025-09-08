@@ -48,11 +48,7 @@ export default function Board({
   return (
     <div
       className="relative select-none"
-      style={{
-        width: gridWidth,
-        height: gridHeight,
-        margin: "0 auto",
-      }}
+      style={{ width: gridWidth, height: gridHeight, margin: "0 auto" }}
     >
       {/* 드래그 선택 박스 오버레이 */}
       {overlayRect && (
@@ -63,8 +59,8 @@ export default function Board({
             top: overlayRect.top,
             width: overlayRect.width,
             height: overlayRect.height,
-            border: "2px solid rgba(34,197,94,1)",   // green-500
-            background: "rgba(34,197,94,0.12)",     // 연한 초록
+            border: "2px solid var(--cell-outline)",
+            background: "rgba(74, 222, 128, 0.12)", // #4ade80 @ 12%
             zIndex: 3,
           }}
         />
@@ -91,19 +87,27 @@ export default function Board({
                   onTouchMove: (e) => onTouchMoveCell?.(r, c, e),
                 };
 
-            const selectedCls = isSelected ? " bg-green-100 ring-2 ring-green-500" : "";
-            const hoverCls    = isHovered && !isSelected ? " ring-2 ring-yellow-400" : "";
-            const missCls     = isMissed ? " !bg-red-400" : ""; // 빨강 우선권 보장
-            const disabledCls = disabled ? " opacity-50 pointer-events-none" : "";
+            // ✅ Tailwind 고정색 제거 → CSS 모듈 상태 클래스만 사용
+            const classList = [styles.cell];
+            if (isSelected) classList.push(styles.cellSelected);
+            if (isMissed) classList.push(styles.cellMiss);
+            if (disabled) classList.push("opacity-50 pointer-events-none");
+            // (hover 링은 과도할 수 있어 기본 :hover 효과만 사용)
 
             return (
               <div
                 key={key}
-                className={`${styles.cell} ${selectedCls} ${hoverCls} ${missCls} ${disabledCls}`}
-                style={{ width: cellSize, height: cellSize, touchAction: "none", position: "relative" }}
+                className={classList.join(" ")}
+                style={{
+                  width: cellSize,
+                  height: cellSize,
+                  touchAction: "none",
+                  position: "relative",
+                }}
                 {...handlers}
+                data-hovered={isHovered ? "1" : undefined}
               >
-                {/* 레몬(숨기지 않음 — 원본 유지) */}
+                {/* 레몬 아이콘 */}
                 {isLemon && num !== null && (
                   <img
                     src="/images/lemon.png"
@@ -113,11 +117,11 @@ export default function Board({
                   />
                 )}
 
-                {/* 숫자 */}
+                {/* 숫자 — ▶ 색/투명도는 CSS 모듈에서 통일 관리 */}
                 {num !== null && (
                   <span
-                    className={styles.number}
-                    style={{ zIndex: 2, fontSize, color: "#000" }}
+                    className={`${styles.number} ${isLemon ? styles.numberLemon : ""}`}
+                    style={{ zIndex: 2, fontSize }}
                   >
                     {num}
                   </span>
