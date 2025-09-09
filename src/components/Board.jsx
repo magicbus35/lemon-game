@@ -9,22 +9,21 @@ export default function Board({
   missedCells,
   onMouseDown,
   onMouseOver,
+  onMouseUpCell,      // ← 추가
   onTouchStartCell,
   onTouchMoveCell,
+  onTouchEndCell,     // ← 추가
   disabled,
   cellSize,
 }) {
   const rows = board.length;
   const cols = board[0].length;
 
-  // Board.module.css의 gap과 동일
   const GAP = 2;
-
   const fontSize = Math.max(12, Math.floor(cellSize * 0.48));
   const gridWidth = cols * cellSize + (cols - 1) * GAP;
   const gridHeight = rows * cellSize + (rows - 1) * GAP;
 
-  // 드래그 사각형 오버레이 (선택 범위 박스)
   const hasSelection = selectedCells && selectedCells.size > 0;
   let overlayRect = null;
   if (hasSelection) {
@@ -50,7 +49,6 @@ export default function Board({
       className="relative select-none"
       style={{ width: gridWidth, height: gridHeight, margin: "0 auto" }}
     >
-      {/* 드래그 선택 박스 오버레이 */}
       {overlayRect && (
         <div
           className="pointer-events-none absolute rounded-md"
@@ -59,8 +57,8 @@ export default function Board({
             top: overlayRect.top,
             width: overlayRect.width,
             height: overlayRect.height,
-            border: "2px solid var(--cell-outline)",
-            background: "rgba(74, 222, 128, 0.12)", // #4ade80 @ 12%
+            border: "2px solid rgba(34,197,94,1)",
+            background: "rgba(34,197,94,0.12)",
             zIndex: 3,
           }}
         />
@@ -83,31 +81,24 @@ export default function Board({
               : {
                   onMouseDown: (e) => onMouseDown?.(r, c, e),
                   onMouseOver: (e) => onMouseOver?.(r, c, e),
+                  onMouseUp:   (e) => onMouseUpCell?.(r, c, e),        // ← 끝 좌표 전달
                   onTouchStart: (e) => onTouchStartCell?.(r, c, e),
-                  onTouchMove: (e) => onTouchMoveCell?.(r, c, e),
+                  onTouchMove:  (e) => onTouchMoveCell?.(r, c, e),
+                  onTouchEnd:   (e) => onTouchEndCell?.(r, c, e),      // ← 끝 좌표 전달
                 };
 
-            // ✅ Tailwind 고정색 제거 → CSS 모듈 상태 클래스만 사용
-            const classList = [styles.cell];
-            if (isSelected) classList.push(styles.cellSelected);
-            if (isMissed) classList.push(styles.cellMiss);
-            if (disabled) classList.push("opacity-50 pointer-events-none");
-            // (hover 링은 과도할 수 있어 기본 :hover 효과만 사용)
+            const selectedCls = isSelected ? " bg-green-100 ring-2 ring-green-500" : "";
+            const hoverCls    = isHovered && !isSelected ? " ring-2 ring-yellow-400" : "";
+            const missCls     = isMissed ? " !bg-red-500/70" : ""; // 라이트 모드도 또렷
+            const disabledCls = disabled ? " opacity-50 pointer-events-none" : "";
 
             return (
               <div
                 key={key}
-                className={classList.join(" ")}
-                style={{
-                  width: cellSize,
-                  height: cellSize,
-                  touchAction: "none",
-                  position: "relative",
-                }}
+                className={`${styles.cell} ${selectedCls} ${hoverCls} ${missCls} ${disabledCls}`}
+                style={{ width: cellSize, height: cellSize, touchAction: "none", position: "relative" }}
                 {...handlers}
-                data-hovered={isHovered ? "1" : undefined}
               >
-                {/* 레몬 아이콘 */}
                 {isLemon && num !== null && (
                   <img
                     src="/images/lemon.png"
@@ -117,10 +108,9 @@ export default function Board({
                   />
                 )}
 
-                {/* 숫자 — ▶ 색/투명도는 CSS 모듈에서 통일 관리 */}
                 {num !== null && (
                   <span
-                    className={`${styles.number} ${isLemon ? styles.numberLemon : ""}`}
+                    className={isLemon ? styles.numberLemon : styles.number}
                     style={{ zIndex: 2, fontSize }}
                   >
                     {num}
