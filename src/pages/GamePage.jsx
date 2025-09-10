@@ -122,12 +122,14 @@ export default function GamePage() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [gameOver, setGameOver] = useState(false);
 
-  // 점수/닉네임
+  // 점수/닉네임 + 🔐 비밀번호(추가)
   const [score, setScore] = useState(0);
   const [playerName, setPlayerName] = useState(localStorage.getItem("nickname") || "");
+  const [playerPw, setPlayerPw] = useState(""); // 🔐 추가
   const NICK_RE = /^(?=.{2,16}$)[가-힣A-Za-z0-9_-]+$/;
   const FORBIDDEN = ["익명", "anonymous", "anon"];
   const trimmedName = useMemo(() => (playerName || "").trim(), [playerName]);
+  const trimmedPw = useMemo(() => (playerPw || "").trim(), [playerPw]); // 🔐 추가
   const isNickValid = useMemo(
     () =>
       trimmedName.length > 0 &&
@@ -412,20 +414,34 @@ export default function GamePage() {
   const handleTouchStart = (r, c) => onDragStart(r, c);
   const handleTouchMove = (r, c) => onDragOver(r, c);
 
-  // 점수 저장 → 저장 성공 시 랭킹 페이지로 이동
+  // 점수 저장 → 저장 성공 시 랭킹 페이지로 이동  🔐 비밀번호 포함만 추가
   const handleSaveScore = async () => {
     if (!isNickValid) {
       alert("닉네임 형식이 올바르지 않습니다. (2~16자, 한글/영문/숫자/_-)");
       return;
     }
+    if (trimmedPw.length < 4 || trimmedPw.length > 20) {
+      alert("비밀번호는 4~20자로 입력해주세요.");
+      return;
+    }
+
     localStorage.setItem("nickname", trimmedName);
     try {
-      const ok = await saveScore({ nickname: trimmedName, score });
+      const result = await saveScore({ nickname: trimmedName, score, password: trimmedPw });
+      const ok = typeof result === "object" ? !!result.ok : !!result;
       if (ok) {
         alert("랭킹 저장 완료!");
         navigate("/ranking");
       } else {
-        alert("저장 실패. 잠시 후 다시 시도해주세요.");
+        const reason =
+          typeof result === "object" && result?.reason ? String(result.reason) : "";
+        if (reason === "PASSWORD_MISMATCH") {
+          alert("비밀번호가 일치하지 않습니다. 닉네임에 설정된 비밀번호를 입력하세요.");
+        } else if (reason === "PASSWORD_REQUIRED") {
+          alert("이 닉네임에는 비밀번호가 설정되어 있습니다. 비밀번호를 입력하세요.");
+        } else {
+          alert("저장 실패. 잠시 후 다시 시도해주세요.");
+        }
       }
     } catch {
       alert("저장 중 오류가 발생했습니다.");
@@ -558,12 +574,20 @@ export default function GamePage() {
                     최종 점수: <span className="font-bold">{score}</span>
                   </p>
 
+                  {/* 🔐 닉네임 + 비밀번호 + 점수 저장 */}
                   <div className="flex items-center gap-2 mt-2">
                     <input
                       className="border rounded px-3 py-2"
                       placeholder="닉네임 (2~16자, 한글/영문/숫자/_-)"
                       value={playerName}
                       onChange={(e) => setPlayerName(e.target.value)}
+                    />
+                    <input
+                      className="border rounded px-3 py-2"
+                      type="password"
+                      placeholder="비밀번호 (4~20자)"
+                      value={playerPw}
+                      onChange={(e) => setPlayerPw(e.target.value)}
                     />
                     <button
                       className={`${styles.btn} ${styles.btnSecondary} ${styles.buttonBlackText}`}
