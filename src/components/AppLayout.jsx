@@ -4,11 +4,11 @@ import { useBirdy } from "../context/BirdyMode";
 import { useTheme } from "../theme/ThemeProvider";
 
 export default function AppLayout() {
-  const { active: birdy, set } = useBirdy();
+  const { active: birdy } = useBirdy();
 
   const gameLabel   = birdy ? "버디 게임" : "레몬 게임";
-  const iconSrc     = birdy ? "/images/birdy.png" : "/images/lemon.png"; // ← 아이콘 공통 소스
-  const headerLogo  = iconSrc;                                           // 헤더 좌상단 로고도 동일
+  const iconSrc     = birdy ? "/images/birdy.png" : "/images/lemon.png";
+  const headerLogo  = iconSrc;
 
   const { theme, toggle } = useTheme();
   const isDark = theme === "dark";
@@ -26,27 +26,6 @@ export default function AppLayout() {
             {/* 게임 버튼 아이콘만 살짝 크게 (22px) */}
             <NavItem to="/game"    iconImgSrc={iconSrc} label={gameLabel} iconSize={22} />
             <NavItem to="/ranking" iconEmoji="🏆"       label="랭킹" />
-
-            {/* 상태 뱃지 + 즉시 토글 */}
-            <span
-              className={
-                "px-2 py-1 rounded text-xs font-semibold " +
-                (birdy
-                  ? "bg-blue-100 text-blue-700 border border-blue-300"
-                  : "bg-gray-100 text-gray-700 border border-gray-300")
-              }
-              title="현재 Birdy 상태"
-            >
-              {birdy ? "BIRDY: ON" : "BIRDY: OFF"}
-            </span>
-            <button
-              type="button"
-              onClick={() => set(!birdy, "manual")}
-              className="px-2 py-1 rounded border text-xs hover:bg-yellow-50 dark:hover:bg-neutral-800"
-              title="Birdy 토글"
-            >
-              토글
-            </button>
 
             {/* 다크모드 토글 */}
             <button
@@ -71,18 +50,12 @@ export default function AppLayout() {
       <footer className="mx-auto max-w-5xl px-4 pb-8 text-sm text-gray-500 dark:text-neutral-400">
         <div className="flex items-center justify-between">
           <span>© {new Date().getFullYear()} Lemon Game</span>
-          <span className="opacity-80">{birdy ? "Birdy game" : "Lemon game"}</span>
         </div>
       </footer>
     </div>
   );
 }
 
-/**
- * NavItem
- * - iconImgSrc가 있으면 이미지 아이콘 사용 (iconSize로 크기 조절)
- * - 아니면 iconEmoji 사용
- */
 function NavItem({ to, iconImgSrc, iconEmoji, label, iconSize = 16 }) {
   return (
     <NavLink
