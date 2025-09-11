@@ -7,6 +7,7 @@ import ScoreDisplay from "../components/ScoreDisplay";
 import Timer from "../components/Timer";
 import { useBirdy } from "../context/BirdyMode";
 import { saveScore } from "../services/scoreStore";
+import { logPlayEvent } from "../services/analytics";
 import styles from "../styles/GamePage.module.css";
 
 const ROWS = 10;
@@ -16,7 +17,7 @@ const GAME_DURATION = 120;
 const bonusMessages = [
   '이봐, 친구! 그거 알아? 버디의 본캐는 버디1204라는 놀라운 사실을!',
   '이봐, 친구! 그거 알아? 주급이 무려 200만이 넘는 사람들이 있다는 놀라운 사실을!',
-  '자네 혹시 이스터에그라고 아는가? 그래.. 정말 낭만 넘치는 시스템이지',
+  '자네 혹시 이스터에그라고 아는가? 뭐.. 그냥 물어봤다네',
   '이 게임을 플레이하는 그대에게 축복을.. "장기백"',
   '"종로단"',
   '화산귀환은 고금제일 정통무협이다 눈마새, 룬의 아이들 화산귀환 레츠고',
@@ -94,6 +95,22 @@ const hasValidMove = (board) => {
   }
   return false;
 };
+
+/* -------------------- 세션 ID 유틸 (analytics) -------------------- */
+const SID_KEY = "lg_session_id";
+function getSessionId() {
+  try {
+    let sid = sessionStorage.getItem(SID_KEY);
+    if (!sid) {
+      sid = crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+      sessionStorage.setItem(SID_KEY, sid);
+    }
+    return sid;
+  } catch {
+    return `${Date.now()}-${Math.random()}`;
+  }
+}
+/* ----------------------------------------------------------------- */
 
 export default function GamePage() {
   const { active: birdy, decide, set } = useBirdy();
@@ -204,7 +221,10 @@ export default function GamePage() {
     setMonkeys(items);
   }, []);
 
-  // 게임 시작(카운트다운)
+  // ▶ 게임 시작(카운트다운)
+  const startTimeRef = useRef(null);
+  const sentEndRef = useRef(false);
+
   const startGame = useCallback(() => {
     // 버디 결정은 "manual"로 호출해서 락에 안 막히게 한다
     const p = Math.max(0, Math.min(1, Number(BIRDY_PROB)));
@@ -218,6 +238,16 @@ export default function GamePage() {
       const res = decide(p, "manual");
       console.log("[birdy] decide(", p, ", 'manual') ->", res);
     }
+
+    // 🔸 analytics: start
+    startTimeRef.current = Date.now();
+    sentEndRef.current = false;
+    logPlayEvent({
+      event: "start",
+      session_id: getSessionId(),
+      user_agent: navigator.userAgent,
+      referrer: document.referrer || "",
+    });
 
     setGameStarted(false);
     setIsCountingDown(true);
@@ -295,7 +325,21 @@ export default function GamePage() {
     hoveredCellRef.current = null;
     setGameStarted(false);
     setGameOver(true);
-  }, [timeLeft, gameStarted, board, gameOver]);
+
+    // 🔸 analytics: end (중복 방지)
+    if (!sentEndRef.current) {
+      const dur = startTimeRef.current ? Date.now() - startTimeRef.current : null;
+      logPlayEvent({
+        event: "end",
+        session_id: getSessionId(),
+        score,
+        duration_ms: dur,
+        user_agent: navigator.userAgent,
+        referrer: document.referrer || "",
+      });
+      sentEndRef.current = true;
+    }
+  }, [timeLeft, gameStarted, board, gameOver, score]);
 
   // 드래그
   const onDragStart = useCallback((r, c) => {
@@ -404,7 +448,21 @@ export default function GamePage() {
     if (!gameStarted || gameOver) return;
     sprinkleMonkeys(140);
     setTimeLeft(0);
-  }, [gameStarted, gameOver, sprinkleMonkeys]);
+
+    // 🔸 analytics: end (중복 방지)
+    if (!sentEndRef.current) {
+      const dur = startTimeRef.current ? Date.now() - startTimeRef.current : null;
+      logPlayEvent({
+        event: "end",
+        session_id: getSessionId(),
+        score,
+        duration_ms: dur,
+        user_agent: navigator.userAgent,
+        referrer: document.referrer || "",
+      });
+      sentEndRef.current = true;
+    }
+  }, [gameStarted, gameOver, sprinkleMonkeys, score]);
 
   useEffect(() => {
     if (!isDragging) return;
@@ -437,6 +495,16 @@ export default function GamePage() {
       const result = await saveScore({ nickname: trimmedName, score, password: trimmedPw });
       const ok = typeof result === "object" ? !!result.ok : !!result;
       if (ok) {
+        // 🔸 analytics: save
+        logPlayEvent({
+          event: "save",
+          session_id: getSessionId(),
+          nickname: trimmedName,
+          score,
+          user_agent: navigator.userAgent,
+          referrer: document.referrer || "",
+        });
+
         alert("랭킹 저장 완료!");
         navigate("/ranking");
       } else {
