@@ -6,10 +6,12 @@ import GamePage from "./pages/GamePage";
 import RankingPage from "./pages/RankingPage";
 import ResultPage from "./pages/ResultPage";
 import { ThemeProvider } from "./theme/ThemeProvider";
+import { BirdyModeProvider } from "./context/BirdyMode";
 
 export default function App() {
   return (
     <ThemeProvider>
+      <BirdyModeProvider>
       <Router>
         <Routes>
           <Route element={<AppLayout />}>
@@ -21,6 +23,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
+          </BirdyModeProvider>
     </ThemeProvider>
   );
 }

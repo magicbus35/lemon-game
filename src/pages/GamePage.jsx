@@ -5,6 +5,7 @@ import Board from "../components/Board";
 import Countdown from "../components/Countdown";
 import ScoreDisplay from "../components/ScoreDisplay";
 import Timer from "../components/Timer";
+import { useBirdy } from "../context/BirdyMode";
 import { saveScore } from "../services/scoreStore";
 import styles from "../styles/GamePage.module.css";
 
@@ -13,9 +14,14 @@ const COLS = 17;
 const GAME_DURATION = 120;
 
 const bonusMessages = [
-  "이봐, 친구! 그거 알아? 버디의 본캐는 버디1204라는 놀라운 사실을!",
-  '이봐, 친구! 그거 알아? 블레는 무려 카운터를 "못"친다는 놀라운 사실을!',
-  "이봐, 친구! 그거 알아? 주급이 무려 200만을 넘는 사람이 있다는 놀라운 사실을!",
+  '이봐, 친구! 그거 알아? 버디의 본캐는 버디1204라는 놀라운 사실을!',
+  '이봐, 친구! 그거 알아? 주급이 무려 200만이 넘는 사람들이 있다는 놀라운 사실을!',
+  '자네 혹시 이스터에그라고 아는가? 그래.. 정말 낭만 넘치는 시스템이지',
+  '이 게임을 플레이하는 그대에게 축복을.. "장기백"',
+  '"종로단"',
+  '화산귀환은 고금제일 정통무협이다 눈마새, 룬의 아이들 화산귀환 레츠고',
+  '진짜? 에이 설마.. 아니 어느 멍청이가 브레이커에게 정단질증 97돌을줰ㅋㅋㅋㅋㅋㅋ',
+  'ㄱㅈ ㅇㅂㄱㄹㅇㅅ'
 ];
 
 // 무작위 보드 생성 (1~9)
@@ -37,7 +43,6 @@ const generateLemonCells = (rows, cols, count = 10) => {
 };
 
 /* ----------------------- 보조 유틸 ----------------------- */
-// 드래그 시작/끝으로 직사각형 경계 계산
 const getRectBounds = (start, end) => {
   if (!start || !end) return null;
   const r1 = Math.min(start.r, end.r);
@@ -47,11 +52,8 @@ const getRectBounds = (start, end) => {
   return { r1, c1, r2, c2 };
 };
 
-// (새 규칙) 직사각형 내부 숫자만 합산: sum, 숫자칸 수, 레몬칸 수
 const summarizeRectNumbers = (board, lemonCells, r1, c1, r2, c2) => {
-  let sum = 0;
-  let numCount = 0;
-  let lemonCount = 0;
+  let sum = 0, numCount = 0, lemonCount = 0;
   for (let r = r1; r <= r2; r++) {
     for (let c = c1; c <= c2; c++) {
       const v = board[r][c];
@@ -66,13 +68,11 @@ const summarizeRectNumbers = (board, lemonCells, r1, c1, r2, c2) => {
 };
 /* -------------------------------------------------------- */
 
-// (새 규칙) 합=10인 직사각형이 있는지: null은 0으로 취급(무시)
 const hasValidMove = (board) => {
   const R = board.length;
   if (!R) return false;
   const C = board[0].length;
 
-  // 숫자 누적합(프리픽스) — null은 0
   const ps = Array.from({ length: R + 1 }, () => Array(C + 1).fill(0));
   for (let r = 0; r < R; r++) {
     for (let c = 0; c < C; c++) {
@@ -96,7 +96,11 @@ const hasValidMove = (board) => {
 };
 
 export default function GamePage() {
+  const { active: birdy, decide, set } = useBirdy();
   const navigate = useNavigate();
+
+  // 여기 숫자만 바꾸면 됨. 1로 두고 테스트하면 반드시 켜짐.
+  const BIRDY_PROB = 0.01;
 
   // 🐒 우끼끼 연출 컨테이너/상태
   const containerRef = useRef(null);
@@ -107,7 +111,7 @@ export default function GamePage() {
   const [lemonCells, setLemonCells] = useState(new Set());
   const [selectedCells, setSelectedCells] = useState(new Set());
   const [hoveredCell, setHoveredCell] = useState(null);
-  const hoveredCellRef = useRef(null); // 끝 좌표 보강
+  const hoveredCellRef = useRef(null);
   const [missedCells, setMissedCells] = useState(new Set());
 
   // 드래그
@@ -122,23 +126,20 @@ export default function GamePage() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [gameOver, setGameOver] = useState(false);
 
-  // 점수/닉네임 + 🔐 비밀번호(추가)
+  // 점수/닉네임 + 🔐 비밀번호
   const [score, setScore] = useState(0);
   const [playerName, setPlayerName] = useState(localStorage.getItem("nickname") || "");
-  const [playerPw, setPlayerPw] = useState(""); // 🔐 추가
+  const [playerPw, setPlayerPw] = useState("");
   const NICK_RE = /^(?=.{2,16}$)[가-힣A-Za-z0-9_-]+$/;
   const FORBIDDEN = ["익명", "anonymous", "anon"];
   const trimmedName = useMemo(() => (playerName || "").trim(), [playerName]);
-  const trimmedPw = useMemo(() => (playerPw || "").trim(), [playerPw]); // 🔐 추가
+  const trimmedPw = useMemo(() => (playerPw || "").trim(), [playerPw]);
   const isNickValid = useMemo(
-    () =>
-      trimmedName.length > 0 &&
-      NICK_RE.test(trimmedName) &&
-      !FORBIDDEN.some((w) => trimmedName.toLowerCase() === w),
+    () => trimmedName.length > 0 && NICK_RE.test(trimmedName) && !FORBIDDEN.some((w) => trimmedName.toLowerCase() === w),
     [trimmedName]
   );
 
-  // 🔊 성공 사운드
+  // 🔊 성공 사운드 (birdy 바뀌면 즉시 교체)
   const [sfxVol, setSfxVol] = useState(() => {
     const v = Number(localStorage.getItem("sfxVol"));
     return Number.isFinite(v) ? Math.min(Math.max(v, 0), 1) : 0.15;
@@ -146,11 +147,11 @@ export default function GamePage() {
   const successAudioRef = useRef(null);
   useEffect(() => {
     try {
-      const a = new Audio("/sound/success.mp3");
+      const a = new Audio(birdy ? "/sound/bird.wav" : "/sound/success.mp3");
       successAudioRef.current = a;
       a.volume = sfxVol;
     } catch {}
-  }, []);
+  }, [birdy, sfxVol]);
   const playSuccess = useCallback(() => {
     const a = successAudioRef.current;
     if (!a) return;
@@ -205,6 +206,19 @@ export default function GamePage() {
 
   // 게임 시작(카운트다운)
   const startGame = useCallback(() => {
+    // 버디 결정은 "manual"로 호출해서 락에 안 막히게 한다
+    const p = Math.max(0, Math.min(1, Number(BIRDY_PROB)));
+    if (p >= 1) {
+      set(true, "manual");
+      console.log("[birdy] forced ON via set(true,'manual') because prob=1");
+    } else if (p <= 0) {
+      set(false, "manual");
+      console.log("[birdy] forced OFF via set(false,'manual') because prob=0");
+    } else {
+      const res = decide(p, "manual");
+      console.log("[birdy] decide(", p, ", 'manual') ->", res);
+    }
+
     setGameStarted(false);
     setIsCountingDown(true);
     setCountdown(3);
@@ -218,7 +232,7 @@ export default function GamePage() {
     setGameOver(false);
     setScore(0);
     setMonkeys([]);
-  }, []);
+  }, [decide, set]);
 
   // 카운트다운
   useEffect(() => {
@@ -252,7 +266,6 @@ export default function GamePage() {
     const R = board.length, C = board[0].length;
     const missed = new Set();
 
-    // 모든 직사각형 검사: 숫자만 합산해서 10이면, 그 직사각형 내의 '숫자칸'만 missed에 추가
     for (let r1 = 0; r1 < R; r1++) {
       for (let c1 = 0; c1 < C; c1++) {
         for (let r2 = r1; r2 < R; r2++) {
@@ -267,7 +280,7 @@ export default function GamePage() {
             if (sum === 10) {
               for (let r = r1; r <= r2; r++) {
                 for (let c = c1; c <= c2; c++) {
-                  if (board[r][c] != null) missed.add(`${r}-${c}`); // 숫자칸만
+                  if (board[r][c] != null) missed.add(`${r}-${c}`);
                 }
               }
             }
@@ -312,7 +325,6 @@ export default function GamePage() {
     [isDragging, dragStart]
   );
 
-  // (새 규칙) 판정: 빈칸 허용, 점수=숫자칸 수 + 레몬×4, 제거=숫자칸만
   const onDragEnd = useCallback(
     (endRC) => {
       setIsDragging(false);
@@ -336,7 +348,6 @@ export default function GamePage() {
       }
       const { r1, c1, r2, c2 } = bounds;
 
-      // 숫자만 합산해서 10인지 확인 + 점수 요소들 집계
       const { sum, numCount, lemonCount } = summarizeRectNumbers(
         board,
         lemonCells,
@@ -347,11 +358,10 @@ export default function GamePage() {
       );
 
       if (sum === 10 && numCount > 0) {
-        const gained = numCount + lemonCount * 4; // 새 규칙 점수
+        const gained = numCount + lemonCount * 4;
         const next = board.map((row) => [...row]);
         const nextLemons = new Set(lemonCells);
 
-        // 숫자칸만 제거(null) + 레몬도 제거
         for (let r = r1; r <= r2; r++) {
           for (let c = c1; c <= c2; c++) {
             if (next[r][c] != null) {
@@ -386,9 +396,8 @@ export default function GamePage() {
     [board, lemonCells, dragStart]
   );
 
-  // 각 셀에서 직접 mouseup/touchend으로 끝 좌표 전달
-  const handleMouseUpCell = (r, c) => onDragEnd({ r, c });
-  const handleTouchEndCell = (r, c) => onDragEnd({ r, c });
+  const handleMouseUpCell   = (r, c) => onDragEnd({ r, c });
+  const handleTouchEndCell  = (r, c) => onDragEnd({ r, c });
 
   // ✅ 우끼끼(포기) — 원숭이 뿌리고 즉시 종료
   const handleGiveUp = useCallback(() => {
@@ -397,7 +406,6 @@ export default function GamePage() {
     setTimeLeft(0);
   }, [gameStarted, gameOver, sprinkleMonkeys]);
 
-  // 드래그 종료 리스너(보드 밖에서 놓을 때 대비)
   useEffect(() => {
     if (!isDragging) return;
     const up = () => onDragEnd();
@@ -409,12 +417,11 @@ export default function GamePage() {
     };
   }, [isDragging, onDragEnd]);
 
-  const handleMouseDown = (r, c) => onDragStart(r, c);
-  const handleMouseOver = (r, c) => onDragOver(r, c);
+  const handleMouseDown  = (r, c) => onDragStart(r, c);
+  const handleMouseOver  = (r, c) => onDragOver(r, c);
   const handleTouchStart = (r, c) => onDragStart(r, c);
-  const handleTouchMove = (r, c) => onDragOver(r, c);
+  const handleTouchMove  = (r, c) => onDragOver(r, c);
 
-  // 점수 저장 → 저장 성공 시 랭킹 페이지로 이동  🔐 비밀번호 포함만 추가
   const handleSaveScore = async () => {
     if (!isNickValid) {
       alert("닉네임 형식이 올바르지 않습니다. (2~16자, 한글/영문/숫자/_-)");
@@ -473,7 +480,7 @@ export default function GamePage() {
           </span>
         ))}
 
-        <h1 className={styles.title}>🍋 레몬게임</h1>
+        <h1 className={styles.title}>{birdy ? "버디 게임" : "레몬 게임"}</h1>
 
         <div className={`${styles.card} ${styles.boardCard}`}>
           {isPreGame ? (
@@ -487,7 +494,6 @@ export default function GamePage() {
             </div>
           ) : (
             <>
-              {/* 중앙(점수/타이머) + 우측(볼륨) */}
               <div className={styles.statusBar}>
                 <div className={styles.statusRow}>
                   <div className={styles.metricCard}>
@@ -531,10 +537,10 @@ export default function GamePage() {
                       missedCells={missedCells}
                       onMouseDown={handleMouseDown}
                       onMouseOver={handleMouseOver}
-                      onMouseUpCell={handleMouseUpCell}       // 끝 좌표 전달
+                      onMouseUpCell={handleMouseUpCell}
                       onTouchStartCell={handleTouchStart}
                       onTouchMoveCell={handleTouchMove}
-                      onTouchEndCell={handleTouchEndCell}     // 끝 좌표 전달
+                      onTouchEndCell={handleTouchEndCell}
                       disabled={!gameStarted || isCountingDown || timeLeft <= 0}
                       cellSize={cellSize}
                     />
@@ -544,7 +550,6 @@ export default function GamePage() {
                     "{bonusMessage}"
                   </p>
 
-                  {/* 진행 중: 우끼끼(포기) + 다시하기 */}
                   {gameStarted && !isCountingDown && !gameOver && (
                     <div className="mt-4 flex gap-2">
                       <button
@@ -566,7 +571,6 @@ export default function GamePage() {
                 </div>
               )}
 
-              {/* 종료 화면 */}
               {!gameStarted && !isCountingDown && gameOver && (
                 <div className="mt-4 flex flex-col items-center gap-3">
                   <p className="text-lg font-semibold">게임 종료!</p>
@@ -574,7 +578,6 @@ export default function GamePage() {
                     최종 점수: <span className="font-bold">{score}</span>
                   </p>
 
-                  {/* 🔐 닉네임 + 비밀번호 + 점수 저장 */}
                   <div className="flex items-center gap-2 mt-2">
                     <input
                       className="border rounded px-3 py-2"
@@ -606,7 +609,6 @@ export default function GamePage() {
           )}
         </div>
 
-        {/* 규칙 카드 */}
         <div className={styles.rulesCard}>
           <h3 className="text-lg font-semibold mb-3">게임 규칙</h3>
           <ul className={`${styles.rulesText} space-y-2 text-sm`}>

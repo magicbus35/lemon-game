@@ -69,3 +69,46 @@ html.dark {
   --table-text: #cbd5e1;        /* ▼ 기존 #e6e7eb → 보드 숫자와 동일 톤 */
   --table-border: #475569;
 }
+
+/* ===== 라이트 팔레트(버디 모드) ===== */
+html.birdy {
+  /* 공통 패널/카드 */
+  --panel-bg: #e0f2fe;          /* sky-100 */
+  --panel-text: #0f172a;        /* slate-900 */
+  --panel-border: #60a5fa;      /* blue-400 */
+
+  /* 보드 & 셀 */
+  --board-surface: #e0f2fe;
+  --board-bg: #ffffff;
+  --board-border: #60a5fa;
+  --cell-bg: #ffffff;
+  --cell-text: #0f172a;
+  --cell-selected: #dbeafe;     /* blue-100 */
+  --cell-hover: #eff6ff;        /* blue-50 */
+  --cell-outline: #93c5fd;      /* blue-300 */
+  --cell-miss: #fee2e2;         /* red-100 (same) */
+
+  /* 레몬(버디) 관련 포인트 컬러 */
+  --lemon-dot: #1d4ed8;         /* blue-700 */
+  --lemon-glow: #93c5fd;        /* blue-300 */
+
+  /* 상단 메트릭/상태바 */
+  --status-bg: #f1f5f9;         /* slate-100 */
+  --metric-bg: #ffffff;
+  --metric-text: #0f172a;
+  --metric-border: #cbd5e1;
+
+  /* 볼륨 슬라이더 */
+  --slider-track: #e2e8f0;      /* slate-200 */
+  --slider-thumb-border: #93c5fd;
+
+  /* 랭킹 테이블 */
+  --table-row: #ffffff;
+  --table-row-alt: #f8fafc;
+  --table-text: #0f172a;
+  --table-border: #cbd5e1;
+
+  /* 기타 포인트 */
+  --link: #0ea5e9;              /* sky-500 */
+  --link-hover: #0284c7;        /* sky-600 */
+}

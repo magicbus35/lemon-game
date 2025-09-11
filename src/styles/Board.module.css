@@ -1,62 +1,78 @@
-/* 그리드(간격 고정) */
+/* ===== 보드 그리드 ===== */
 .boardGrid {
-  @apply grid;
-  gap: 2px;
+  display: grid;
+  gap: 2px;                 /* JS에서 GAP=2와 일치 */
+  user-select: none;
 }
 
-/* (옵션) 보드 컨테이너 */
-.board {
-  background: var(--board-bg);
-  border: 2px solid var(--board-border);
-  border-radius: 12px;
-  padding: 10px;
-}
-
-/* 개별 셀: 색상은 전부 변수 기반 */
+/* ===== 셀 ===== */
 .cell {
-  @apply relative flex items-center justify-center rounded-md transition-colors;
-  background: var(--cell-bg);
-  border: 1px solid var(--board-border);
-  width: var(--cell-size, 36px);
-  height: var(--cell-size, 36px);
-  color: var(--table-text);
-}
-.cell:hover { background: var(--cell-selected); }
-
-/* 숫자(규칙 상자와 동일 톤) */
-.number,
-.num,
-.value,
-.cellNumber {
-  @apply relative font-bold select-none;
-  color: var(--table-text);
-  opacity: 0.86;
-  font-weight: 600;
-  line-height: 1;
+  position: relative;
+  width: 36px;              /* 실제 크기는 inline-style로 덮어씀 */
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;          /* gray-300 */
+  box-shadow:
+    0 1px 0 rgba(0,0,0,0.02),
+    inset 0 -1px 0 rgba(0,0,0,0.02);
+  transition: transform 60ms ease, box-shadow 120ms ease, background 120ms ease;
 }
 
-/* 레몬 아이콘 오버레이 */
+.cell:hover {
+  box-shadow:
+    0 2px 6px rgba(0,0,0,0.06),
+    inset 0 -1px 0 rgba(0,0,0,0.03);
+}
+
+/* 미스 마킹 등은 Tailwind 유틸 클래스로 덮어써짐 */
+
+/* ===== 레몬/버디 이미지 ===== */
 .lemon {
-  @apply absolute inset-0 w-full h-full object-contain pointer-events-none;
-  color: var(--lemon-dot);
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  z-index: 0;               /* 숫자보다 아래 */
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.9;             /* 필요에 맞게 조절 */
 }
 
-/* 상태 */
-.cellSelected {
-  background: var(--cell-selected);
-  outline: 2px solid var(--cell-outline);
-  outline-offset: -1px;
+/* ===== 숫자 (모든 칸에서 동일하게 보이도록) ===== */
+.number {
+  position: relative;
+  z-index: 2;               /* 이미지보다 위 */
+  font-weight: 700;         /* 굵기 통일 */
+  line-height: 1;
+  color: #111827;           /* gray-900 */
+  text-shadow: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
-.cellMiss { background: var(--cell-miss); }
 
-/* 가드: 텍스트류만 톤 강제(레몬 숫자는 예외, 이미지/아이콘 제외) */
-.cell :where(span, strong, em, b, i, p, div):not(.numberLemon):not(.cellNumberLemon) {
-  color: var(--table-text) !important;
+/* 혹시 기존 코드가 numberLemon을 참고해도 동일하게 보이도록 안전망 */
+.numberLemon {
+  position: relative;
+  z-index: 2;
+  font-weight: 700;
+  line-height: 1;
+  color: #111827;
+  text-shadow: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* 레몬 칸 숫자: 항상 검정 + 불투명 */
-.numberLemon,
-.cellNumberLemon {
-  color: #111827 !important; /* slate-900 */
-  opacity: 1 !important;
+/* 다크 모드 색상 보정 (선택사항) */
+:global(html.dark) .cell {
+  background: #0f1115;                /* neutral-900 approx */
+  border-color: #272a31;              /* neutral-800 approx */
+}
+:global(html.dark) .number,
+:global(html.dark) .numberLemon {
+  color: #e5e7eb;                     /* gray-200 */
 }

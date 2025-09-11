@@ -1,5 +1,7 @@
+// src/components/Board.jsx
 import React from "react";
 import styles from "../styles/Board.module.css";
+import { useBirdy } from "../context/BirdyMode";
 
 export default function Board({
   board,
@@ -9,21 +11,26 @@ export default function Board({
   missedCells,
   onMouseDown,
   onMouseOver,
-  onMouseUpCell,      // ← 추가
+  onMouseUpCell,      // ← 끝 좌표 전달
   onTouchStartCell,
   onTouchMoveCell,
-  onTouchEndCell,     // ← 추가
+  onTouchEndCell,     // ← 끝 좌표 전달
   disabled,
   cellSize,
 }) {
-  const rows = board.length;
-  const cols = board[0].length;
+  // 🔵 버디 모드 이미지 전환
+  const { active: birdy } = useBirdy();
+  const lemonImg = birdy ? "/images/birdy.png" : "/images/lemon.png";
+
+  const rows = board?.length ?? 0;
+  const cols = rows ? (board[0]?.length ?? 0) : 0;
 
   const GAP = 2;
   const fontSize = Math.max(12, Math.floor(cellSize * 0.48));
-  const gridWidth = cols * cellSize + (cols - 1) * GAP;
-  const gridHeight = rows * cellSize + (rows - 1) * GAP;
+  const gridWidth  = cols * cellSize + Math.max(0, cols - 1) * GAP;
+  const gridHeight = rows * cellSize + Math.max(0, rows - 1) * GAP;
 
+  // 드래그 선택 영역(하이라이트 사각형)
   const hasSelection = selectedCells && selectedCells.size > 0;
   let overlayRect = null;
   if (hasSelection) {
@@ -36,9 +43,9 @@ export default function Board({
       if (c > maxC) maxC = c;
     });
     if (minR !== Infinity) {
-      const left = minC * (cellSize + GAP);
-      const top = minR * (cellSize + GAP);
-      const width = (maxC - minC + 1) * cellSize + (maxC - minC) * GAP;
+      const left   = minC * (cellSize + GAP);
+      const top    = minR * (cellSize + GAP);
+      const width  = (maxC - minC + 1) * cellSize + (maxC - minC) * GAP;
       const height = (maxR - minR + 1) * cellSize + (maxR - minR) * GAP;
       overlayRect = { left, top, width, height };
     }
@@ -70,26 +77,26 @@ export default function Board({
       >
         {board.map((row, r) =>
           row.map((num, c) => {
-            const key = `${r}-${c}`;
-            const isLemon = lemonCells.has(key);
-            const isSelected = selectedCells.has(key);
-            const isMissed = missedCells.has(key);
-            const isHovered = hoveredCell === key;
+            const key        = `${r}-${c}`;
+            const isLemon    = lemonCells?.has(key);
+            const isSelected = selectedCells?.has(key);
+            const isMissed   = missedCells?.has(key);
+            const isHovered  = hoveredCell === key;
 
             const handlers = disabled
               ? {}
               : {
-                  onMouseDown: (e) => onMouseDown?.(r, c, e),
-                  onMouseOver: (e) => onMouseOver?.(r, c, e),
-                  onMouseUp:   (e) => onMouseUpCell?.(r, c, e),        // ← 끝 좌표 전달
+                  onMouseDown:  (e) => onMouseDown?.(r, c, e),
+                  onMouseOver:  (e) => onMouseOver?.(r, c, e),
+                  onMouseUp:    (e) => onMouseUpCell?.(r, c, e),
                   onTouchStart: (e) => onTouchStartCell?.(r, c, e),
                   onTouchMove:  (e) => onTouchMoveCell?.(r, c, e),
-                  onTouchEnd:   (e) => onTouchEndCell?.(r, c, e),      // ← 끝 좌표 전달
+                  onTouchEnd:   (e) => onTouchEndCell?.(r, c, e),
                 };
 
             const selectedCls = isSelected ? " bg-green-100 ring-2 ring-green-500" : "";
             const hoverCls    = isHovered && !isSelected ? " ring-2 ring-yellow-400" : "";
-            const missCls     = isMissed ? " !bg-red-500/70" : ""; // 라이트 모드도 또렷
+            const missCls     = isMissed ? " !bg-red-500/70" : "";
             const disabledCls = disabled ? " opacity-50 pointer-events-none" : "";
 
             return (
@@ -101,18 +108,16 @@ export default function Board({
               >
                 {isLemon && num !== null && (
                   <img
-                    src="/images/lemon.png"
+                    src={lemonImg}
                     alt="lemon"
                     className={styles.lemon}
+                    draggable="false"
                     style={{ opacity: 0.9, zIndex: 0 }}
                   />
                 )}
 
                 {num !== null && (
-                  <span
-                    className={isLemon ? styles.numberLemon : styles.number}
-                    style={{ zIndex: 2, fontSize }}
-                  >
+                  <span className={styles.number} style={{ zIndex: 2, fontSize }}>
                     {num}
                   </span>
                 )}
