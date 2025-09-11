@@ -193,11 +193,11 @@ export default function GamePage() {
   useEffect(() => {
     const applySize = () => {
       const w = window.innerWidth;
-      if (w <= 360) setCellSize(26);
-      else if (w <= 420) setCellSize(28);
-      else if (w <= 480) setCellSize(30);
-      else if (w <= 560) setCellSize(32);
-      else setCellSize(36);
+      if (w <= 360) setCellSize(30);   // +4
+      else if (w <= 420) setCellSize(32); // +4
+      else if (w <= 480) setCellSize(34); // +4
+      else if (w <= 560) setCellSize(38); // +6 (가독성 업)
+      else setCellSize(42);               // +6 (데스크탑 넉넉)
     };
     applySize();
     window.addEventListener("resize", applySize);
