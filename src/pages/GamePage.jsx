@@ -1,4 +1,3 @@
-// src/pages/GamePage.jsx
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Board from "../components/Board";
@@ -38,12 +37,13 @@ const generateLemonCells = (rows, cols, count = 10) => {
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) all.push(`${r}-${c}`);
   for (let i = all.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [all[i], all[j]] = [all[j], all[i]];
+    [all[i], all[j]] = [all[j], all[i]];   // ✅ 원래대로 단순 swap
   }
   return new Set(all.slice(0, maxCount));
 };
 
 /* ----------------------- 보조 유틸 ----------------------- */
+// 드래그 시작/끝으로 직사각형 경계 계산
 const getRectBounds = (start, end) => {
   if (!start || !end) return null;
   const r1 = Math.min(start.r, end.r);
@@ -53,6 +53,7 @@ const getRectBounds = (start, end) => {
   return { r1, c1, r2, c2 };
 };
 
+// (새 규칙) 직사각형 내부 숫자만 합산: sum, 숫자칸 수, 레몬칸 수
 const summarizeRectNumbers = (board, lemonCells, r1, c1, r2, c2) => {
   let sum = 0, numCount = 0, lemonCount = 0;
   for (let r = r1; r <= r2; r++) {
@@ -95,22 +96,6 @@ const hasValidMove = (board) => {
   }
   return false;
 };
-
-/* -------------------- 세션 ID 유틸 (analytics) -------------------- */
-const SID_KEY = "lg_session_id";
-function getSessionId() {
-  try {
-    let sid = sessionStorage.getItem(SID_KEY);
-    if (!sid) {
-      sid = crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
-      sessionStorage.setItem(SID_KEY, sid);
-    }
-    return sid;
-  } catch {
-    return `${Date.now()}-${Math.random()}`;
-  }
-}
-/* ----------------------------------------------------------------- */
 
 export default function GamePage() {
   const { active: birdy, decide, set } = useBirdy();
@@ -193,11 +178,11 @@ export default function GamePage() {
   useEffect(() => {
     const applySize = () => {
       const w = window.innerWidth;
-      if (w <= 360) setCellSize(30);   // +4
-      else if (w <= 420) setCellSize(32); // +4
-      else if (w <= 480) setCellSize(34); // +4
-      else if (w <= 560) setCellSize(38); // +6 (가독성 업)
-      else setCellSize(42);               // +6 (데스크탑 넉넉)
+      if (w <= 360) setCellSize(26);
+      else if (w <= 420) setCellSize(28);
+      else if (w <= 480) setCellSize(30);
+      else if (w <= 560) setCellSize(32);
+      else setCellSize(36);
     };
     applySize();
     window.addEventListener("resize", applySize);
@@ -221,10 +206,8 @@ export default function GamePage() {
     setMonkeys(items);
   }, []);
 
-  // ▶ 게임 시작(카운트다운)
-  const startTimeRef = useRef(null);
-  const sentEndRef = useRef(false);
-
+  // ▶ 카운트다운/게임 시작 준비 + 플레이 시작 이벤트 기록
+  const sessionRef = useRef(null);
   const startGame = useCallback(() => {
     // 버디 결정은 "manual"로 호출해서 락에 안 막히게 한다
     const p = Math.max(0, Math.min(1, Number(BIRDY_PROB)));
@@ -239,16 +222,6 @@ export default function GamePage() {
       console.log("[birdy] decide(", p, ", 'manual') ->", res);
     }
 
-    // 🔸 analytics: start
-    startTimeRef.current = Date.now();
-    sentEndRef.current = false;
-    logPlayEvent({
-      event: "start",
-      session_id: getSessionId(),
-      user_agent: navigator.userAgent,
-      referrer: document.referrer || "",
-    });
-
     setGameStarted(false);
     setIsCountingDown(true);
     setCountdown(3);
@@ -262,6 +235,16 @@ export default function GamePage() {
     setGameOver(false);
     setScore(0);
     setMonkeys([]);
+
+    // 세션ID 만들고 play start 기록
+    const sid = crypto.randomUUID();
+    sessionRef.current = sid;
+    logPlayEvent({
+      event: "start",
+      session_id: sid,
+      user_agent: navigator.userAgent,
+      referrer: document.referrer,
+    });
   }, [decide, set]);
 
   // 카운트다운
@@ -289,7 +272,7 @@ export default function GamePage() {
     return () => clearInterval(id);
   }, [gameStarted, timeLeft]);
 
-  // (새 규칙) 타임아웃 처리: 빈칸 허용, 숫자칸만 미스 마킹
+  // (새 규칙) 타임아웃 처리: 빈칸 허용, 숫자칸만 미스 마킹 + 플레이 종료 이벤트
   useEffect(() => {
     if (timeLeft !== 0 || !gameStarted || board.length === 0 || gameOver) return;
 
@@ -326,19 +309,16 @@ export default function GamePage() {
     setGameStarted(false);
     setGameOver(true);
 
-    // 🔸 analytics: end (중복 방지)
-    if (!sentEndRef.current) {
-      const dur = startTimeRef.current ? Date.now() - startTimeRef.current : null;
-      logPlayEvent({
-        event: "end",
-        session_id: getSessionId(),
-        score,
-        duration_ms: dur,
-        user_agent: navigator.userAgent,
-        referrer: document.referrer || "",
-      });
-      sentEndRef.current = true;
-    }
+    // 종료 로깅
+    const sid = sessionRef.current || crypto.randomUUID();
+    logPlayEvent({
+      event: "end",
+      session_id: sid,
+      score,
+      duration_ms: GAME_DURATION * 1000,
+      user_agent: navigator.userAgent,
+      referrer: document.referrer,
+    });
   }, [timeLeft, gameStarted, board, gameOver, score]);
 
   // 드래그
@@ -369,6 +349,7 @@ export default function GamePage() {
     [isDragging, dragStart]
   );
 
+  // (새 규칙) 판정: 빈칸 허용, 점수=숫자칸 수 + 레몬×4, 제거=숫자칸만
   const onDragEnd = useCallback(
     (endRC) => {
       setIsDragging(false);
@@ -402,10 +383,11 @@ export default function GamePage() {
       );
 
       if (sum === 10 && numCount > 0) {
-        const gained = numCount + lemonCount * 4;
+        const gained = numCount + lemonCount * 4; // 새 규칙 점수
         const next = board.map((row) => [...row]);
         const nextLemons = new Set(lemonCells);
 
+        // 숫자칸만 제거(null) + 레몬도 제거
         for (let r = r1; r <= r2; r++) {
           for (let c = c1; c <= c2; c++) {
             if (next[r][c] != null) {
@@ -440,30 +422,28 @@ export default function GamePage() {
     [board, lemonCells, dragStart]
   );
 
+  // 각 셀에서 직접 mouseup/touchend으로 끝 좌표 전달
   const handleMouseUpCell   = (r, c) => onDragEnd({ r, c });
   const handleTouchEndCell  = (r, c) => onDragEnd({ r, c });
 
-  // ✅ 우끼끼(포기) — 원숭이 뿌리고 즉시 종료
+  // ✅ 우끼끼(포기) — 원숭이 뿌리고 즉시 종료 (end 로깅 포함)
   const handleGiveUp = useCallback(() => {
     if (!gameStarted || gameOver) return;
     sprinkleMonkeys(140);
     setTimeLeft(0);
 
-    // 🔸 analytics: end (중복 방지)
-    if (!sentEndRef.current) {
-      const dur = startTimeRef.current ? Date.now() - startTimeRef.current : null;
-      logPlayEvent({
-        event: "end",
-        session_id: getSessionId(),
-        score,
-        duration_ms: dur,
-        user_agent: navigator.userAgent,
-        referrer: document.referrer || "",
-      });
-      sentEndRef.current = true;
-    }
-  }, [gameStarted, gameOver, sprinkleMonkeys, score]);
+    const sid = sessionRef.current || crypto.randomUUID();
+    logPlayEvent({
+      event: "end",
+      session_id: sid,
+      score,
+      duration_ms: (GAME_DURATION - timeLeft) * 1000,
+      user_agent: navigator.userAgent,
+      referrer: document.referrer,
+    });
+  }, [gameStarted, gameOver, sprinkleMonkeys, score, timeLeft]);
 
+  // 드래그 종료 리스너(보드 밖에서 놓을 때 대비)
   useEffect(() => {
     if (!isDragging) return;
     const up = () => onDragEnd();
@@ -480,8 +460,12 @@ export default function GamePage() {
   const handleTouchStart = (r, c) => onDragStart(r, c);
   const handleTouchMove  = (r, c) => onDragOver(r, c);
 
+  // 점수 저장 → 저장 성공 시 랭킹 페이지로 이동  🔐 비밀번호 포함 + save 로깅
   const handleSaveScore = async () => {
-    if (!isNickValid) {
+    const trimmedName = (playerName || "").trim();
+    const trimmedPw = (playerPw || "").trim();
+
+    if (!(trimmedName.length > 0 && NICK_RE.test(trimmedName) && !FORBIDDEN.some((w) => trimmedName.toLowerCase() === w))) {
       alert("닉네임 형식이 올바르지 않습니다. (2~16자, 한글/영문/숫자/_-)");
       return;
     }
@@ -493,18 +477,20 @@ export default function GamePage() {
     localStorage.setItem("nickname", trimmedName);
     try {
       const result = await saveScore({ nickname: trimmedName, score, password: trimmedPw });
+
+      // 저장 로깅
+      const sid = sessionRef.current || crypto.randomUUID();
+      logPlayEvent({
+        event: "save",
+        session_id: sid,
+        score,
+        nickname: trimmedName,
+        user_agent: navigator.userAgent,
+        referrer: document.referrer,
+      });
+
       const ok = typeof result === "object" ? !!result.ok : !!result;
       if (ok) {
-        // 🔸 analytics: save
-        logPlayEvent({
-          event: "save",
-          session_id: getSessionId(),
-          nickname: trimmedName,
-          score,
-          user_agent: navigator.userAgent,
-          referrer: document.referrer || "",
-        });
-
         alert("랭킹 저장 완료!");
         navigate("/ranking");
       } else {
@@ -530,7 +516,7 @@ export default function GamePage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.container} ref={containerRef}>
+      <div className={`${styles.container} card-surface`} ref={containerRef}>
         {/* 🐒 우끼끼 아이콘들 */}
         {monkeys.map((m) => (
           <span
@@ -550,18 +536,19 @@ export default function GamePage() {
 
         <h1 className={styles.title}>{birdy ? "버디 게임" : "레몬 게임"}</h1>
 
-        <div className={`${styles.card} ${styles.boardCard}`}>
+        <div className={`${styles.card} ${styles.boardCard} board-surface`}>
           {isPreGame ? (
             <div className="text-center">
               <p className={styles.leadText}>
                 숫자 블록을 드래그해 <strong>합이 10</strong>이 되는 직사각형을 찾으세요.
               </p>
-              <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={startGame}>
+              <button className={`btn btn-accent ${styles.btn} ${styles.btnPrimary}`} onClick={startGame}>
                 게임 시작
               </button>
             </div>
           ) : (
             <>
+              {/* 중앙(점수/타이머) + 우측(볼륨) */}
               <div className={styles.statusBar}>
                 <div className={styles.statusRow}>
                   <div className={styles.metricCard}>
@@ -596,7 +583,7 @@ export default function GamePage() {
 
               {board.length > 0 && (
                 <div className="flex flex-col items-center">
-                  <div className={`${styles.boardWrap} ${styles.boardSurface}`}>
+                  <div className={`${styles.boardWrap} ${styles.boardSurface} board-surface`}>
                     <Board
                       board={board}
                       lemonCells={lemonCells}
@@ -618,10 +605,11 @@ export default function GamePage() {
                     "{bonusMessage}"
                   </p>
 
+                  {/* 진행 중: 우끼끼(포기) + 다시하기 */}
                   {gameStarted && !isCountingDown && !gameOver && (
                     <div className="mt-4 flex gap-2">
                       <button
-                        className={`${styles.btn} ${styles.btnDanger}`}
+                        className={`btn ${styles.btn} ${styles.btnDanger}`}
                         onClick={handleGiveUp}
                         aria-label="포기하고 즉시 종료"
                         title="포기하고 즉시 종료"
@@ -629,7 +617,7 @@ export default function GamePage() {
                         🐒 우끼끼
                       </button>
                       <button
-                        className={`${styles.btn} ${styles.btnSecondary} ${styles.textAlwaysBlack}`}
+                        className={`btn btn-secondary ${styles.btn} ${styles.btnSecondary} ${styles.textAlwaysBlack}`}
                         onClick={startGame}
                       >
                         다시하기
@@ -639,6 +627,7 @@ export default function GamePage() {
                 </div>
               )}
 
+              {/* 종료 화면 */}
               {!gameStarted && !isCountingDown && gameOver && (
                 <div className="mt-4 flex flex-col items-center gap-3">
                   <p className="text-lg font-semibold">게임 종료!</p>
@@ -646,6 +635,7 @@ export default function GamePage() {
                     최종 점수: <span className="font-bold">{score}</span>
                   </p>
 
+                  {/* 🔐 닉네임 + 비밀번호 + 점수 저장 */}
                   <div className="flex items-center gap-2 mt-2">
                     <input
                       className="border rounded px-3 py-2"
@@ -661,14 +651,14 @@ export default function GamePage() {
                       onChange={(e) => setPlayerPw(e.target.value)}
                     />
                     <button
-                      className={`${styles.btn} ${styles.btnSecondary} ${styles.buttonBlackText}`}
+                      className={`btn btn-secondary ${styles.btn} ${styles.btnSecondary} ${styles.buttonBlackText}`}
                       onClick={handleSaveScore}
                     >
                       점수 저장
                     </button>
                   </div>
 
-                  <button className={`${styles.btn} ${styles.btnPrimary} mt-2`} onClick={startGame}>
+                  <button className={`btn btn-accent ${styles.btn} ${styles.btnPrimary} mt-2`} onClick={startGame}>
                     다시하기
                   </button>
                 </div>
@@ -677,12 +667,12 @@ export default function GamePage() {
           )}
         </div>
 
-        <div className={styles.rulesCard}>
+        {/* 규칙 카드 */}
+        <div className={`${styles.rulesCard} card-surface`}>
           <h3 className="text-lg font-semibold mb-3">게임 규칙</h3>
           <ul className={`${styles.rulesText} space-y-2 text-sm`}>
-            <RuleItem index="1" text="드래그로 사각형을 선택해 숫자의 합만 10이면 성공입니다. (빈칸 허용)" />
-            <RuleItem index="2" text="레몬 칸은 +4 보너스가 적용됩니다." />
-            <RuleItem index="3" text="정답 시 숫자칸만 사라집니다. (빈칸은 그대로)" />
+            <RuleItem index="1" text="드래그로 사각형을 선택해 숫자의 합이 10이면 성공입니다." />
+            <RuleItem index="2" text="레몬 칸은 +4점의 보너스가 적용됩니다." />
           </ul>
         </div>
       </div>

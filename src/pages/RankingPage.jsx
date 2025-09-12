@@ -32,21 +32,24 @@ export default function RankingPage() {
   }, []);
 
   return (
-    <div className={styles.root}>
+    <div className={`${styles.root} text-[var(--text-muted)]`}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">🏆 랭킹</h2>
+        {/* 제목에도 muted 색상 강제 */}
+        <h2 className="text-2xl font-bold text-[var(--text-muted)]">🏆 랭킹</h2>
         <div className="flex gap-2">
           <Link
             to="/game"
-            className="px-3 py-2 rounded-lg border hover:bg-yellow-50 hover:border-yellow-300
-                       dark:hover:bg-neutral-800 dark:hover:border-neutral-700"
+            className="px-3 py-2 rounded-lg border text-[var(--text-muted)]
+                       bg-[var(--surface-2)] border-[var(--border)]
+                       hover:bg-[var(--cell-hover)]"
           >
             🍋 게임 시작
           </Link>
           <button
             onClick={load}
-            className="px-3 py-2 rounded-lg border hover:bg-yellow-50 hover:border-yellow-300
-                       dark:hover:bg-neutral-800 dark:hover:border-neutral-700"
+            className="px-3 py-2 rounded-lg border text-[var(--text-muted)]
+                       bg-[var(--surface-2)] border-[var(--border)]
+                       hover:bg-[var(--cell-hover)]"
           >
             새로고침
           </button>
@@ -54,7 +57,7 @@ export default function RankingPage() {
       </div>
 
       <div className={styles.tableWrap}>
-        <table className={styles.table}>
+        <table className={`${styles.table} text-[var(--text-muted)]`}>
           <thead className={styles.thead}>
             <tr>
               <th style={{ width: 64 }}>순위</th>
@@ -78,7 +81,14 @@ export default function RankingPage() {
                   <td>{idx + 1}</td>
                   <td>
                     {row.nickname}
-                    {row.isMe && <span className={styles.badgeMe} style={{ marginLeft: 8 }}>내 기록</span>}
+                    {row.isMe && (
+                      <span
+                        className={styles.badgeMe}
+                        style={{ marginLeft: 8 }}
+                      >
+                        내 기록
+                      </span>
+                    )}
                   </td>
                   <td>{row.score}</td>
                   <td>{formatKST(row.created_at)}</td>

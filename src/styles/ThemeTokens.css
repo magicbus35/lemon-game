@@ -1,0 +1,40 @@
+:root{
+  --bg:#f7f9f8; --bg-muted:#edf3f1; --panel:#ffffff; --panel-contrast:#f3f6f5; --border:#d9e2df;
+  --text:#0f1a14; --text-muted:#4a5a53; --text-soft:#7a8a83;
+  --accent:#37c380; --accent-em:#21ad6a; --accent-weak:#a6e7c9;
+  --warn:#ffb74d; --danger:#e57373; --ok:#61d69c;
+  --shadow-1:0 6px 20px rgba(12,16,14,.06); --radius:14px;
+}
+
+/* ⬇︎ 더 밝고 부드러운 다크 톤 */
+.dark{
+  --bg:#1a222b;              /* 배경: 새벽 남청 */
+  --bg-muted:#202935;        /* muted: 살짝 더 짙은 패널 배경 */
+  --panel:#232e39;           /* 카드/패널 */
+  --panel-contrast:#293542;  /* 패널 대비 */
+  --border:#324250;          /* 테두리도 눈부심 줄임 */
+
+  --text:#e7edf2;            /* 본문 텍스트 */
+  --text-muted:#c4cdd4;      /* 보조 텍스트 */
+  --text-soft:#a8b4bd;
+
+  --accent:#33ba79; --accent-em:#2aa36a; --accent-weak:#315b48;
+
+  --warn:#ffb84f; --danger:#ef9090; --ok:#53cc93;
+
+  --shadow-1:0 10px 28px rgba(3,5,6,.28);
+  --radius:14px;
+}
+
+html,body{background:var(--bg);color:var(--text);}
+
+/* 전역 유틸 */
+.app-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-1);}
+.btn{border-radius:10px;padding:10px 14px;font-weight:600;border:1px solid var(--border);background:var(--panel-contrast);color:var(--text);}
+.btn:hover{filter:brightness(1.05);}
+.btn-primary{background:var(--accent);border-color:var(--accent-em);color:#0c130f;}
+.btn-secondary{background:var(--panel-contrast);border-color:var(--border);color:var(--text);} /* 대비 강화 */
+.btn-danger{background:var(--danger);border-color:#e67a7a;color:#2b0e0e;}
+.app-header{backdrop-filter:saturate(120%) blur(8px);background:color-mix(in oklab,var(--panel) 82%,transparent);border-bottom:1px solid var(--border);}
+.app-footer{color:var(--text-soft);}
+.badge-soft{background:var(--bg-muted);color:var(--text-muted);border:1px solid var(--border);border-radius:999px;padding:3px 8px;font-weight:600;font-size:12px;}

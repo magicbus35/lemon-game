@@ -1,78 +1,32 @@
-/* ===== 보드 그리드 ===== */
-.boardGrid {
-  display: grid;
-  gap: 2px;                 /* JS에서 GAP=2와 일치 */
-  user-select: none;
+.boardGrid{
+  display:grid; gap:2px; justify-content:center;
+  background:var(--border); padding:4px; border-radius:var(--radius);
 }
 
-/* ===== 셀 ===== */
-.cell {
-  position: relative;
-  width: 36px;              /* 실제 크기는 inline-style로 덮어씀 */
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #ffffff;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;          /* gray-300 */
-  box-shadow:
-    0 1px 0 rgba(0,0,0,0.02),
-    inset 0 -1px 0 rgba(0,0,0,0.02);
-  transition: transform 60ms ease, box-shadow 120ms ease, background 120ms ease;
+.cell{
+  background:var(--panel);
+  display:flex; align-items:center; justify-content:center;
+  border-radius:6px; border:1px solid var(--border);
+  position:relative; transition:background .15s, transform .1s;
+  font-weight:700; color:var(--text);
 }
 
-.cell:hover {
-  box-shadow:
-    0 2px 6px rgba(0,0,0,0.06),
-    inset 0 -1px 0 rgba(0,0,0,0.03);
+.cellSelected{
+  background:color-mix(in oklab,var(--accent) 25%, var(--panel) 75%);
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px color-mix(in oklab,var(--accent) 60%, transparent);
+  z-index:2;
+}
+.cellHover{outline:2px solid var(--accent-em); outline-offset:-2px; z-index:1;}
+.cellMiss{
+  background:color-mix(in oklab,var(--danger) 30%, var(--panel) 70%);
+  border-color:var(--danger); color:#fff;
+}
+.cellDisabled{opacity:.4; pointer-events:none;}
+
+.lemon{
+  position:absolute; inset:2px; object-fit:contain; opacity:.9; pointer-events:none; z-index:0;
 }
 
-/* 미스 마킹 등은 Tailwind 유틸 클래스로 덮어써짐 */
-
-/* ===== 레몬/버디 이미지 ===== */
-.lemon {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  z-index: 0;               /* 숫자보다 아래 */
-  pointer-events: none;
-  user-select: none;
-  opacity: 0.9;             /* 필요에 맞게 조절 */
-}
-
-/* ===== 숫자 (모든 칸에서 동일하게 보이도록) ===== */
-.number {
-  position: relative;
-  z-index: 2;               /* 이미지보다 위 */
-  font-weight: 700;         /* 굵기 통일 */
-  line-height: 1;
-  color: #111827;           /* gray-900 */
-  text-shadow: none;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* 혹시 기존 코드가 numberLemon을 참고해도 동일하게 보이도록 안전망 */
-.numberLemon {
-  position: relative;
-  z-index: 2;
-  font-weight: 700;
-  line-height: 1;
-  color: #111827;
-  text-shadow: none;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* 다크 모드 색상 보정 (선택사항) */
-:global(html.dark) .cell {
-  background: #0f1115;                /* neutral-900 approx */
-  border-color: #272a31;              /* neutral-800 approx */
-}
-:global(html.dark) .number,
-:global(html.dark) .numberLemon {
-  color: #e5e7eb;                     /* gray-200 */
-}
+.number{z-index:2; font-weight:700; color:var(--text-muted);}
+.numberLemon{color:var(--accent-em); text-shadow:0 0 4px color-mix(in oklab,var(--accent) 40%, transparent);}

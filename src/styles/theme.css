@@ -1,114 +1,110 @@
-/* src/styles/theme.css */
+/* 부드러운 다크/라이트 공통 토큰 */
+:root {
+  /* 라이트 */
+  --bg: #f7f9f8;
+  --bg-muted: #edf3f1;
+  --panel: #ffffff;
+  --panel-contrast: #f3f6f5;
+  --border: #d9e2df;
 
-/* ===== 라이트 팔레트 ===== */
-html {
-  /* 공통 패널/카드 */
-  --panel-bg: #eafff4;          /* 연민트(기존 느낌 유지) */
-  --panel-text: #111827;        /* slate-900 */
-  --panel-border: #34d399;      /* emerald-400 */
+  --text: #0f1a14;         /* 너무 새하얀/새까만 대비 피함 */
+  --text-muted: #4a5a53;
+  --text-soft: #7a8a83;
 
-  /* 보드 & 셀 */
-  --board-surface: #eafff4;     /* 보드 초록 테두리 안쪽 */
-  --board-bg: #ffffff;
-  --board-border: #34d399;
-  --cell-bg: #ffffff;
-  --cell-text: #111827;
-  --cell-selected: #d1fae5;
-  --cell-miss: #fecaca;
-  --cell-outline: #10b981;
-  --lemon-dot: #f59e0b;
+  /* 포인트(연한 초록) */
+  --accent: #37c380;
+  --accent-em: #21ad6a;
+  --accent-weak: #a6e7c9;
 
-  /* 상단바(점수/타이머/볼륨) */
-  --status-bg: #ffffff;
-  --metric-bg: #ffffff;
-  --metric-text: #111827;
-  --metric-border: #e5e7eb;
+  /* 상태색 살짝 톤다운 */
+  --warn: #ffb74d;
+  --danger: #e57373;
+  --ok: #61d69c;
 
-  /* 볼륨 슬라이더 */
-  --slider-track: #e5e7eb;
-  --slider-thumb-border: #cbd5e1;
-
-  /* 랭킹 테이블 */
-  --table-row: #ffffff;
-  --table-row-alt: #f8fafc;
-  --table-text: #111827;
-  --table-border: #e5e7eb;
+  --shadow-1: 0 6px 20px rgba(12, 16, 14, 0.06);
+  --radius: 14px;
 }
 
-/* ===== 다크 팔레트 (회색 위주, 눈부심 최소화) ===== */
-html.dark {
-  /* 공통 패널/카드 */
-  --panel-bg: #1e1f22;
-  --panel-text: #d1d5db;        /* ▼ 기존 #e6e7eb → 한 톤 다운 */
-  --panel-border: #3a3d40;
+/* 다크: 퀘이사존 풍의 차콜 계열, 눈 편한 대비  */
+.dark {
+  --bg: #151a1f;           /* 완전 블랙 대신 차콜 */
+  --bg-muted: #1a2026;
+  --panel: #1f252c;        /* 카드/패널 */
+  --panel-contrast: #1b2127;
+  --border: #2a323b;
 
-  /* 보드 & 셀 */
-  --board-surface: #232427;
-  --board-bg: #2e3136;
-  --board-border: #3a3d40;
-  --cell-bg: #2a2d31;
-  --cell-text: #cbd5e1;         /* ▼ 기존 #e6e7eb → 랭킹과 동일 계열, 덜 눈부심 */
-  --cell-selected: #2f3236;
-  --cell-miss: #4a1f1f;
-  --cell-outline: #4ade80;
-  --lemon-dot: #f59e0b;
+  --text: #e3e9ed;         /* 새하얀 #fff 대신 */
+  --text-muted: #b6c2cb;
+  --text-soft: #93a0aa;
 
-  /* 상단바(점수/타이머/볼륨) */
-  --status-bg: #232427;
-  --metric-bg: #2b2d30;
-  --metric-text: #d7dde3;       /* ▼ 기존 #e9edf2 → 살짝 톤다운 */
-  --metric-border: #3a3d40;
+  /* 초록 포인트를 다크에서 살짝 딥하게 */
+  --accent: #33ba79;
+  --accent-em: #2aa36a;
+  --accent-weak: #265c45;
 
-  /* 볼륨 슬라이더 */
-  --slider-track: #3a3d40;
-  --slider-thumb-border: #4b5563;
+  --warn: #ffb84f;
+  --danger: #ef9090;
+  --ok: #53cc93;
 
-  /* 랭킹 테이블 */
-  --table-row: #1f2124;
-  --table-row-alt: #232427;
-  --table-text: #cbd5e1;        /* ▼ 기존 #e6e7eb → 보드 숫자와 동일 톤 */
-  --table-border: #475569;
+  --shadow-1: 0 10px 28px rgba(3, 5, 6, 0.3);
+  --radius: 14px;
 }
 
-/* ===== 라이트 팔레트(버디 모드) ===== */
-html.birdy {
-  /* 공통 패널/카드 */
-  --panel-bg: #e0f2fe;          /* sky-100 */
-  --panel-text: #0f172a;        /* slate-900 */
-  --panel-border: #60a5fa;      /* blue-400 */
+/* 전역 바탕/글자 */
+html, body {
+  background: var(--bg);
+  color: var(--text);
+}
 
-  /* 보드 & 셀 */
-  --board-surface: #e0f2fe;
-  --board-bg: #ffffff;
-  --board-border: #60a5fa;
-  --cell-bg: #ffffff;
-  --cell-text: #0f172a;
-  --cell-selected: #dbeafe;     /* blue-100 */
-  --cell-hover: #eff6ff;        /* blue-50 */
-  --cell-outline: #93c5fd;      /* blue-300 */
-  --cell-miss: #fee2e2;         /* red-100 (same) */
+/* 공통 카드 */
+.app-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+}
 
-  /* 레몬(버디) 관련 포인트 컬러 */
-  --lemon-dot: #1d4ed8;         /* blue-700 */
-  --lemon-glow: #93c5fd;        /* blue-300 */
+/* 버튼 토큰 */
+.btn {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--panel-contrast);
+  color: var(--text);
+}
+.btn:hover { filter: brightness(1.05); }
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent-em);
+  color: #0c130f;
+}
+.btn-secondary {
+  background: var(--bg-muted);
+}
+.btn-danger {
+  background: var(--danger);
+  border-color: #e67a7a;
+  color: #2b0e0e;
+}
 
-  /* 상단 메트릭/상태바 */
-  --status-bg: #f1f5f9;         /* slate-100 */
-  --metric-bg: #ffffff;
-  --metric-text: #0f172a;
-  --metric-border: #cbd5e1;
+/* 헤더/푸터 살짝 반투명 차콜 */
+.app-header {
+  backdrop-filter: saturate(120%) blur(8px);
+  background: color-mix(in oklab, var(--panel) 82%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+.app-footer {
+  color: var(--text-soft);
+}
 
-  /* 볼륨 슬라이더 */
-  --slider-track: #e2e8f0;      /* slate-200 */
-  --slider-thumb-border: #93c5fd;
-
-  /* 랭킹 테이블 */
-  --table-row: #ffffff;
-  --table-row-alt: #f8fafc;
-  --table-text: #0f172a;
-  --table-border: #cbd5e1;
-
-  /* 기타 포인트 */
-  --link: #0ea5e9;              /* sky-500 */
-  --link-hover: #0284c7;        /* sky-600 */
+/* 작은 배지 */
+.badge-soft {
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-weight: 600;
+  font-size: 12px;
 }

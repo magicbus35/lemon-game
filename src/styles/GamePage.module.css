@@ -1,147 +1,90 @@
-/* ===== Layout ===== */
-.page { @apply w-full flex justify-center; }
+.page{min-height:calc(100vh - 120px);background:var(--bg);color:var(--text);}
+.container{max-width:980px;margin:0 auto;}
 
-/* 👈 원숭이 오버레이 기준이 되도록 relative + overflow hidden */
-.container {
-  @apply w-full max-w-[900px] mx-auto px-4;
-  position: relative;
-  overflow: hidden;
+.card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow-1);
+  padding:28px;
+  margin-top:24px;
+}
+.boardCard{text-align:center;}
+
+.title{
+  font-size:32px;font-weight:800;letter-spacing:-.02em;margin:6px 0 18px;color:var(--text);
 }
 
-.title { @apply text-3xl font-bold mb-6 flex items-center gap-2 justify-center text-center; }
-
-/* ===== Cards (색상은 전부 변수 기반) ===== */
-.card,
-.rulesCard {
-  background: var(--panel-bg);
-  color: var(--panel-text);
-  border: 1.5px solid var(--panel-border);
-  border-radius: 12px;
+/* ⬇︎ 중앙 정렬 */
+.statusBar{
+  display:flex;
+  flex-direction:column;     /* 세로 스택 */
+  align-items:center;        /* 가로 중앙 */
+  gap:10px;
+  margin:8px 0 16px;
+}
+.statusRow{
+  display:flex; gap:12px; justify-content:center; /* 점수/타이머 중앙 배치 */
+}
+.metricCard{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  box-shadow:var(--shadow-1);
+  padding:10px 18px;
+  display:flex;align-items:center;gap:10px;
 }
 
-.boardCard { @apply p-4 sm:p-6; } /* 간격만 담당 */
+/* 볼륨은 제목 아래 가운데 정렬 */
+.volWrap{display:flex;align-items:center;gap:8px;}
+.volLabel{font-weight:600;color:var(--text-soft);}
+.volSlider{accent-color:var(--accent);}
 
-/* 보드 외곽(초록 테두리). 배경은 투명으로 두고 안쪽 바탕은 .boardSurface가 담당 */
-.boardWrap {
-  @apply p-2 sm:p-3 border-2 rounded-lg overflow-auto mx-auto touch-none;
-  background: transparent;
-  border-color: #34d399; /* emerald-400: 초록 테두리 유지 */
+.leadText{color:var(--text-muted);font-size:15px;}
+
+.boardWrap{
+  padding:14px;border-radius:var(--radius);
+  border:2px solid color-mix(in oklab,var(--accent) 55%, var(--panel) 45%);
+}
+.boardSurface{
+  background:var(--panel-contrast);
+  border-radius:calc(var(--radius) - 4px);
+  padding:10px;
 }
 
-/* 보드 안쪽 바탕 (모드별 전환) */
-.boardSurface {
-  background: var(--board-surface); /* 라이트: 연민트, 다크: 회색계 */
-  border-radius: 12px;
-  padding: 8px;
+/* 버튼(모듈 내부용) */
+.btn{border-radius:10px;padding:10px 14px;font-weight:600;border:1px solid var(--border);background:var(--panel-contrast);color:var(--text);}
+.btn:hover{filter:brightness(1.05);}
+.btnPrimary{background:var(--accent);border-color:var(--accent-em);color:#0c130f;}
+.btnSecondary{
+  background:var(--panel-contrast);           /* ⬅ 대비 올림 (이전보다 더 밝게) */
+  border-color:var(--border);
+  color:var(--text);
+  box-shadow:0 0 0 2px rgba(0,0,0,0.05) inset;
+}
+.btnDanger{background:var(--danger);border-color:#e67a7a;color:#2b0e0e;}
+.textAlwaysBlack{color:#08130d!important;}
+.buttonBlackText{color:#0b0f11!important;}
+
+.countdownRow{margin:12px 0 6px;}
+
+.rulesCard{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow-1);
+  padding:18px 22px;
+  margin:18px auto 40px;
+}
+.rulesText{color:var(--text-muted);}
+
+.ruleBadge{
+  width:24px;height:24px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;
+  font-weight:800;
+  background:var(--accent-weak);
+  color:color-mix(in oklab,var(--accent) 35%, #042b1c 65%);
+  border:1px solid color-mix(in oklab,var(--accent) 40%, var(--border) 60%);
 }
 
-/* ===== Status Bar (점수/타이머/볼륨) ===== */
-.statusBar {
-  @apply relative mb-4;
-  background: var(--status-bg);
-  border: 1px solid var(--metric-border);
-  border-radius: 12px;
-  padding: 12px;
-}
-.statusRow { @apply flex justify-center gap-6 sm:gap-8; }
-
-/* (중복 제거) metricCard 한 번만 정의 */
-.metricCard {
-  background: var(--metric-bg) !important;
-  color: var(--metric-text) !important;
-  border: 1px solid var(--metric-border) !important;
-  border-radius: 10px;
-  padding: 12px 16px;
-}
-
-/* 볼륨 UI */
-.volWrap { @apply absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2; }
-.volLabel {
-  font-size: 0.875rem; /* text-sm */
-  color: var(--metric-text);
-  opacity: 0.9;
-}
-
-/* 커스텀 슬라이더 (웹킷/모질라 공통) */
-.volSlider {
-  appearance: none;
-  width: 100%;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--slider-track);
-  outline: none;
-}
-.volSlider::-webkit-slider-thumb {
-  appearance: none;
-  width: 14px; height: 14px;
-  border-radius: 999px;
-  background: var(--metric-bg);
-  border: 2px solid var(--slider-thumb-border);
-}
-.volSlider::-moz-range-thumb {
-  width: 14px; height: 14px;
-  border-radius: 999px;
-  background: var(--metric-bg);
-  border: 2px solid var(--slider-thumb-border);
-}
-.volSlider::-moz-range-track {
-  height: 4px; border-radius: 999px; background: var(--slider-track);
-}
-
-/* ===== Countdown/Rules ===== */
-.countdownRow { @apply mb-3 flex justify-center; }
-.rulesCard { @apply mt-6 p-4 shadow-sm; }
-
-.ruleBadge {
-  @apply mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-full text-white text-sm font-bold;
-  background: #22c55e; /* emerald-500 */
-}
-
-/* 시작 전 안내/규칙 텍스트: 랭킹과 동일 톤 */
-.leadText { color: var(--table-text); opacity: 0.98; }
-.rulesText { color: var(--table-text); opacity: 0.96; }
-
-/* ===== Buttons ===== */
-.btn { @apply px-3 py-2 rounded-lg border transition; }
-.btnPrimary { @apply bg-green-500 hover:bg-green-400 border-green-500 text-white font-semibold; }
-.btnSecondary { @apply bg-yellow-400 hover:bg-yellow-300 border-yellow-400 font-semibold; }
-
-/* 우끼끼(포기) 버튼: 적당히 눈에 띄는 레드, 다크/라이트 공통 */
-.btnDanger { @apply bg-red-500 hover:bg-red-400 border-red-500 text-white font-semibold; }
-
-/* 점수 저장/다시하기 등 텍스트 항상 검정 고정 */
-.textAlwaysBlack { color: #111827 !important; }
-.buttonBlackText,
-.buttonBlackText:hover,
-.buttonBlackText:focus,
-.buttonBlackText:active { color: #111827 !important; }
-
-/* ===== 다크 가독성 보강 (보드 셀 텍스트) ===== */
-:global(html.dark) .cell,
-:global(html.dark) .cell span,
-:global(html.dark) .cell > * {
-  color: var(--cell-text);
-}
-
-/* ===== 우끼끼: 원숭이 오버레이 ===== */
-/* 컨테이너 위를 자유롭게 떠다니는 원숭이들 */
-.monkey {
-  position: absolute;
-  z-index: 50;             /* UI 위로 떠오르지만 클릭 방지는 유지 */
-  pointer-events: none;
-  font-size: 28px;         /* 필요 시 조절 */
-  opacity: 0;
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,.25));
-  animation: monkey-pop 220ms ease-out forwards, monkey-fade 4s 0.8s ease-in forwards;
-}
-
-/* 톡 튀어나오며 나타남 */
-@keyframes monkey-pop {
-  0% { transform: scale(0.6); opacity: 0; }
-  100% { opacity: .28; }
-}
-
-/* 서서히 잔상으로 남기 */
-@keyframes monkey-fade {
-  to { opacity: 0.12; }
-}
+.monkey{position:absolute;pointer-events:none;animation:float 1.2s ease-in-out infinite alternate;font-size:20px;opacity:.9;}
+@keyframes float{from{transform:translateY(0) rotate(0) scale(1);}to{transform:translateY(-4px) rotate(6deg) scale(1.04);}}
