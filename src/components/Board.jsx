@@ -1,4 +1,3 @@
-// src/components/Board.jsx
 import React from "react";
 import styles from "../styles/Board.module.css";
 import { useBirdy } from "../context/BirdyMode";
@@ -30,13 +29,47 @@ export default function Board({
   const gridWidth  = cols * cellSize + Math.max(0, cols - 1) * GAP;
   const gridHeight = rows * cellSize + Math.max(0, rows - 1) * GAP;
 
-  /* ⛔️ 이중 표시 원인 제거: overlayRect 계산/렌더링 전부 삭제 */
+  // 드래그 선택 영역(하이라이트 사각형)
+  const hasSelection = selectedCells && selectedCells.size > 0;
+  let overlayRect = null;
+  if (hasSelection) {
+    let minR = Infinity, minC = Infinity, maxR = -1, maxC = -1;
+    selectedCells.forEach((k) => {
+      const [r, c] = k.split("-").map(Number);
+      if (r < minR) minR = r;
+      if (c < minC) minC = c;
+      if (r > maxR) maxR = r;
+      if (c > maxC) maxC = c;
+    });
+    if (minR !== Infinity) {
+      const left   = minC * (cellSize + GAP);
+      const top    = minR * (cellSize + GAP);
+      const width  = (maxC - minC + 1) * cellSize + (maxC - minC) * GAP;
+      const height = (maxR - minR + 1) * cellSize + (maxR - minR) * GAP;
+      overlayRect = { left, top, width, height };
+    }
+  }
 
   return (
     <div
       className="relative select-none"
       style={{ width: gridWidth, height: gridHeight, margin: "0 auto" }}
     >
+      {overlayRect && (
+        <div
+          className="pointer-events-none absolute rounded-md"
+          style={{
+            left: overlayRect.left,
+            top: overlayRect.top,
+            width: overlayRect.width,
+            height: overlayRect.height,
+            border: "2px solid rgba(34,197,94,1)",
+            background: "rgba(34,197,94,0.12)",
+            zIndex: 3,
+          }}
+        />
+      )}
+
       <div
         className={styles.boardGrid}
         style={{ gridTemplateColumns: `repeat(${cols}, ${cellSize}px)` }}
@@ -60,11 +93,12 @@ export default function Board({
                   onTouchEnd:   (e) => onTouchEndCell?.(r, c, e),
                 };
 
-            // 선택/호버/미스/비활성 스타일 (Tailwind + CSS Module 혼용 그대로 유지)
             const selectedCls = isSelected ? " bg-green-100 ring-2 ring-green-500" : "";
             const hoverCls    = isHovered && !isSelected ? " ring-2 ring-yellow-400" : "";
             const missCls     = isMissed ? " !bg-red-500/70" : "";
             const disabledCls = disabled ? " opacity-50 pointer-events-none" : "";
+
+            const numberClass = isLemon ? styles.numberLemon : styles.number;
 
             return (
               <div
@@ -79,12 +113,11 @@ export default function Board({
                     alt="lemon"
                     className={styles.lemon}
                     draggable="false"
-                    style={{ opacity: 0.9, zIndex: 0 }}
                   />
                 )}
 
                 {num !== null && (
-                  <span className={styles.number} style={{ zIndex: 2, fontSize }}>
+                  <span className={numberClass} style={{ zIndex: 2, fontSize }}>
                     {num}
                   </span>
                 )}

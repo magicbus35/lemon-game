@@ -1,5 +1,11 @@
 .page{min-height:calc(100vh - 120px);background:var(--bg);color:var(--text);}
-.container{max-width:980px;margin:0 auto;}
+.container{
+  max-width:980px;margin:0 auto;
+
+  /* ✅ 우끼끼(원숭이) 아이콘을 이 컨테이너 기준으로 배치 */
+  position:relative;
+  isolation:isolate;            /* 내부 z-index를 외부와 격리 */
+}
 
 .card{
   background:var(--panel);
@@ -86,5 +92,21 @@
   border:1px solid color-mix(in oklab,var(--accent) 40%, var(--border) 60%);
 }
 
-.monkey{position:absolute;pointer-events:none;animation:float 1.2s ease-in-out infinite alternate;font-size:20px;opacity:.9;}
-@keyframes float{from{transform:translateY(0) rotate(0) scale(1);}to{transform:translateY(-4px) rotate(6deg) scale(1.04);}}
+/* ✅ 우끼끼 아이콘: 컨테이너(.container) 기준 절대배치 */
+.monkey{
+  position:absolute;
+  pointer-events:none;
+  animation:float 1.2s ease-in-out infinite alternate;
+  font-size:20px;
+  opacity:.9;
+  z-index:2;                 /* 카드 내부 요소 위/아래 필요 시 조절 */
+}
+@keyframes float{
+  from{transform:translateY(0) rotate(0) scale(1);}
+  to{transform:translateY(-4px) rotate(6deg) scale(1.04);}
+}
+
+/* 큰 화면에서는 아이콘 살짝 키우기 (선택사항) */
+@media (min-width: 1024px){
+  .monkey{ font-size:22px; }
+}

@@ -37,7 +37,7 @@ const generateLemonCells = (rows, cols, count = 10) => {
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) all.push(`${r}-${c}`);
   for (let i = all.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [all[i], all[j]] = [all[j], all[i]];   // ✅ 원래대로 단순 swap
+    [all[i], all[j]] = [all[j], all[i]];   // ✅ 단순 swap
   }
   return new Set(all.slice(0, maxCount));
 };
@@ -189,16 +189,21 @@ export default function GamePage() {
     return () => window.removeEventListener("resize", applySize);
   }, []);
 
-  // 🐒 아이콘 생성
+  // 🐒 아이콘 생성 (컨테이너 기준 균일 분포)
   const sprinkleMonkeys = useCallback((count = 140) => {
     const el = containerRef.current;
     if (!el) return;
+
+    // ✅ 컨테이너 실제 사각형 기준으로 좌표 계산
     const { width, height } = el.getBoundingClientRect();
-    const pad = 8;
+    const pad = 12;
+    const w = Math.max(0, width  - pad * 2);
+    const h = Math.max(0, height - pad * 2);
+
     const items = Array.from({ length: count }, (_, i) => ({
       id: i,
-      x: Math.random() * Math.max(0, width - pad * 2) + pad,
-      y: Math.random() * Math.max(0, height - pad * 2) + pad,
+      x: Math.random() * w + pad,
+      y: Math.random() * h + pad,
       r: Math.floor(Math.random() * 360),
       s: 0.9 + Math.random() * 0.5,
       delay: Math.floor(Math.random() * 500),
@@ -517,7 +522,7 @@ export default function GamePage() {
   return (
     <div className={styles.page}>
       <div className={`${styles.container} card-surface`} ref={containerRef}>
-        {/* 🐒 우끼끼 아이콘들 */}
+        {/* 🐒 우끼끼 아이콘들 (컨테이너 기준 좌표) */}
         {monkeys.map((m) => (
           <span
             key={m.id}
