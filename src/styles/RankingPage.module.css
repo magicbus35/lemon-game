@@ -79,3 +79,59 @@
   border-radius: 999px;
   font-size: 12px;
 }
+
+
+/* 예시: src/styles/RankingPage.module.css 추가 */
+.controlsRow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.tabs { display: flex; gap: 8px; align-items: center; }
+.tab {
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--panel); cursor: pointer;
+}
+.tab:hover { filter: brightness(1.05); }
+.active { background: var(--accent-weak); border-color: var(--accent-em); }
+
+.seasonPicker { display: flex; gap: 8px; align-items: center; }
+.label { color: var(--text-soft); font-size: 14px; }
+.select {
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--panel); color: var(--text);
+}
+
+.meBadge {
+  margin-left: 8px; font-size: 12px; padding: 2px 6px; border-radius: 999px;
+  background: var(--accent-weak); color: var(--text-strong);
+}
+.loadingCell, .emptyCell { text-align: center; padding: 24px; color: var(--text-soft); }
+
+/* === Zebra rows + hover highlight === */
+.table {
+  border-collapse: separate;           /* 줄간 틈 살짝 주기 */
+  border-spacing: 0 2px;               /* 행 사이 2px 간격 */
+}
+
+.table thead th {
+  border-bottom: 1px solid var(--row-border);
+}
+
+.table tbody tr {
+  transition: background-color 120ms ease;
+}
+
+.table tbody tr:nth-child(odd)  { background: var(--row-odd-bg); }
+.table tbody tr:nth-child(even) { background: var(--row-even-bg); }
+
+.table tbody tr:hover { background: var(--row-hover-bg); }
+
+/* 행 사이 경계선(눈에 거의 안 띄게) */
+.table tbody td {
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+}
+.table tbody tr:nth-child(odd)  td { border-bottom-color: var(--row-border); }
+.table tbody tr:nth-child(even) td { border-bottom-color: var(--row-border); }
+
+/* 모바일 압축 시 간격 줄이기 */
+@media (max-width: 520px) {
+  .table { border-spacing: 0 1px; }
+}

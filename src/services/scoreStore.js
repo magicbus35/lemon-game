@@ -24,7 +24,12 @@ export async function saveScore(payload) {
     if (!supabase) {
       const raw = localStorage.getItem("scores");
       const arr = raw ? JSON.parse(raw) : [];
-      arr.push({ nickname: nick, score, created_at: new Date().toISOString() });
+      arr.push({
+        id: `local_${Date.now()}`,
+        nickname: nick,
+        score,
+        created_at: new Date().toISOString(),
+      });
       localStorage.setItem("scores", JSON.stringify(arr));
       return { ok: true };
     }
@@ -39,6 +44,7 @@ export async function saveScore(payload) {
 
       if (error) {
         console.error("[RPC save_score_secure] error:", error);
+        // 서버에서 상세 reason을 내려주는 경우가 아니라면 일반 에러 처리
         return { ok: false };
       }
 
@@ -79,10 +85,16 @@ export async function saveScore(payload) {
 export const saveScoreWithPassword = saveScore;
 
 /**
- * 랭킹 조회: 닉네임당 최고점(뷰 ranking_top) 기준 TOP N
- * 뷰가 없으면 폴백: scores에서 가져와 닉네임별 최고 1개만 남김
+ * 랭킹 조회
+ * @param {{scope?: 'season'|'all', limit?: number}} opts
+ *  - scope: 'season' => ranking_top_season_current (이번 시즌)
+ *           'all'    => ranking_top_alltime      (전체 최고)
+ *  - limit: 기본 50
+ * 뷰 조회 실패 시 scores에서 닉네임별 최고점 폴백 처리
  */
-export async function fetchRanking(limit = 50) {
+export async function fetchRanking(opts = {}) {
+  const { scope = "season", limit = 50 } = opts;
+
   try {
     if (!supabase) {
       // 로컬 폴백
@@ -93,17 +105,20 @@ export async function fetchRanking(limit = 50) {
         .slice(0, limit);
     }
 
+    const viewName =
+      scope === "all" ? "ranking_top_alltime" : "ranking_top_season_current";
+
     // 1차: 뷰 사용(권장)
     const { data, error } = await supabase
-      .from("ranking_top")
+      .from(viewName)
       .select("nickname, score, created_at")
       .order("score", { ascending: false })
       .order("created_at", { ascending: true })
       .limit(limit);
 
     if (error) {
-      // 2차: 뷰가 없을 때 클라이언트에서 닉네임별 최고점 선별
-      console.warn("[fetchRanking] view ranking_top fallback:", error?.message);
+      // 2차: 뷰가 없거나 권한 이슈 → scores에서 폴백
+      console.warn(`[fetchRanking] view ${viewName} fallback:`, error?.message);
       const { data: raw, error: e2 } = await supabase
         .from("scores")
         .select("nickname, score, created_at")
@@ -122,6 +137,66 @@ export async function fetchRanking(limit = 50) {
     console.error("[fetchRanking] error:", e?.message || e);
     return [];
   }
+}
+
+/** 지난 시즌(YYYY-MM) 랭킹 조회: Supabase RPC 사용 */
+export async function fetchRankingByMonth(ym, limit = 100) {
+  // 로컬 폴백(오프라인 개발용)
+  if (!supabase) {
+    const raw = localStorage.getItem("scores");
+    const arr = raw ? JSON.parse(raw) : [];
+    // 로컬에서는 월 필터가 불가능하므로 단순 정렬만
+    const sorted = arr
+      .sort(
+        (a, b) =>
+          (b.score ?? 0) - (a.score ?? 0) ||
+          new Date(a.created_at) - new Date(b.created_at)
+      )
+      .slice(0, limit);
+    return sorted;
+  }
+
+  const { data, error } = await supabase.rpc("ranking_top_by_month", {
+    p_ym: ym,
+  });
+  if (error) throw error;
+
+  // 안전 차원에서 한 번 더 정렬
+  const rows = (data ?? []).sort(
+    (a, b) =>
+      (b.score ?? 0) - (a.score ?? 0) ||
+      new Date(a.created_at) - new Date(b.created_at)
+  );
+  return rows.slice(0, limit);
+}
+
+/** DB에 실제 기록이 있는 시즌(YYYY-MM) 목록을 최신→과거로 가져옴 */
+export async function fetchAvailableSeasons() {
+  // 로컬 폴백(개발/오프라인): localStorage에서 달만 추정
+  if (!supabase) {
+    const raw = localStorage.getItem("scores");
+    const arr = raw ? JSON.parse(raw) : [];
+    const set = new Set(
+      arr
+        .map((r) => {
+          const d = new Date(r.created_at || r.createdAt);
+          if (Number.isNaN(+d)) return null;
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, "0");
+          return `${y}-${m}`;
+        })
+        .filter(Boolean)
+    );
+    return Array.from(set).sort((a, b) => (a < b ? 1 : -1));
+  }
+
+  const { data, error } = await supabase
+    .from("seasons_with_data_kst")
+    .select("ym, mstart")
+    .order("mstart", { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map((r) => r.ym);
 }
 
 // ---- helpers ----
@@ -150,4 +225,30 @@ function dedupeTopByNickname(rows = []) {
     }
   }
   return Array.from(best.values());
+}
+
+/** KST 기준 현재 시즌 라벨 'YYYY-MM' */
+export function getCurrentSeasonLabelKST(d = new Date()) {
+  const fmt = new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    timeZone: "Asia/Seoul",
+  });
+  const parts = fmt.formatToParts(d);
+  const y = parts.find((p) => p.type === "year")?.value ?? "0000";
+  const m =
+    parts.find((p) => p.type === "month")?.value?.padStart(2, "0") ?? "00";
+  return `${y}-${m}`;
+}
+
+/** 최근 N개월 시즌 라벨 목록(현재 포함, 최신→과거) — (지금은 미사용) */
+export function listRecentSeasonsKST(n = 12) {
+  const out = [];
+  const base = new Date();
+  for (let i = 0; i < n; i++) {
+    const d = new Date(base);
+    d.setMonth(base.getMonth() - i);
+    out.push(getCurrentSeasonLabelKST(d));
+  }
+  return out;
 }
