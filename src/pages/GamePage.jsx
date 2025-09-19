@@ -13,6 +13,11 @@ const ROWS = 10;
 const COLS = 17;
 const GAME_DURATION = 120;
 
+// 🔊 BGM 파일 (경로/이름에 공백·특수문자 있어 encodeURI)
+const BGM_SRC = encodeURI(
+  "/sound/Kygo Ft. Conrad - Firestone (John Dee Remix)_[cut_175sec].mp3"
+);
+
 const bonusMessages = [
   '이봐, 친구! 그거 알아? 버디의 본캐는 버디1204라는 놀라운 사실을!',
   '이봐, 친구! 그거 알아? 주급이 무려 200만이 넘는 사람들이 있다는 놀라운 사실을!',
@@ -37,13 +42,12 @@ const generateLemonCells = (rows, cols, count = 10) => {
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) all.push(`${r}-${c}`);
   for (let i = all.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [all[i], all[j]] = [all[j], all[i]];   // ✅ 단순 swap
+    [all[i], all[j]] = [all[j], all[i]];
   }
   return new Set(all.slice(0, maxCount));
 };
 
 /* ----------------------- 보조 유틸 ----------------------- */
-// 드래그 시작/끝으로 직사각형 경계 계산
 const getRectBounds = (start, end) => {
   if (!start || !end) return null;
   const r1 = Math.min(start.r, end.r);
@@ -53,7 +57,6 @@ const getRectBounds = (start, end) => {
   return { r1, c1, r2, c2 };
 };
 
-// (새 규칙) 직사각형 내부 숫자만 합산: sum, 숫자칸 수, 레몬칸 수
 const summarizeRectNumbers = (board, lemonCells, r1, c1, r2, c2) => {
   let sum = 0, numCount = 0, lemonCount = 0;
   for (let r = r1; r <= r2; r++) {
@@ -101,10 +104,8 @@ export default function GamePage() {
   const { active: birdy, decide, set } = useBirdy();
   const navigate = useNavigate();
 
-  // 여기 숫자만 바꾸면 됨. 1로 두고 테스트하면 반드시 켜짐.
   const BIRDY_PROB = 0.01;
 
-  // 🐒 우끼끼 연출 컨테이너/상태
   const containerRef = useRef(null);
   const [monkeys, setMonkeys] = useState([]);
 
@@ -173,6 +174,29 @@ export default function GamePage() {
     if (a) a.volume = sfxVol;
   }, [sfxVol]);
 
+  // 🎵 BGM: 오디오 객체 + 볼륨
+  const [bgmVol, setBgmVol] = useState(() => {
+    const v = Number(localStorage.getItem("bgmVol"));
+    return Number.isFinite(v) ? Math.min(Math.max(v, 0), 1) : 0.3; // 기본 30%
+  });
+  const bgmAudioRef = useRef(null);
+  useEffect(() => {
+    const el = new Audio(BGM_SRC);
+    el.preload = "auto";
+    el.loop = true;
+    el.volume = bgmVol;
+    bgmAudioRef.current = el;
+    return () => {
+      try { el.pause(); } catch {}
+      bgmAudioRef.current = null;
+    };
+  }, []); // mount 1회
+  useEffect(() => {
+    localStorage.setItem("bgmVol", String(bgmVol));
+    const el = bgmAudioRef.current;
+    if (el) el.volume = bgmVol;
+  }, [bgmVol]);
+
   // 셀 크기(반응형)
   const [cellSize, setCellSize] = useState(36);
   useEffect(() => {
@@ -189,17 +213,14 @@ export default function GamePage() {
     return () => window.removeEventListener("resize", applySize);
   }, []);
 
-  // 🐒 아이콘 생성 (컨테이너 기준 균일 분포)
+  // 🐒 아이콘 생성
   const sprinkleMonkeys = useCallback((count = 140) => {
     const el = containerRef.current;
     if (!el) return;
-
-    // ✅ 컨테이너 실제 사각형 기준으로 좌표 계산
     const { width, height } = el.getBoundingClientRect();
     const pad = 12;
     const w = Math.max(0, width  - pad * 2);
     const h = Math.max(0, height - pad * 2);
-
     const items = Array.from({ length: count }, (_, i) => ({
       id: i,
       x: Math.random() * w + pad,
@@ -214,17 +235,16 @@ export default function GamePage() {
   // ▶ 카운트다운/게임 시작 준비 + 플레이 시작 이벤트 기록
   const sessionRef = useRef(null);
   const startGame = useCallback(() => {
-    // 버디 결정은 "manual"로 호출해서 락에 안 막히게 한다
+    // 이전 게임 BGM은 정지
+    try { bgmAudioRef.current?.pause(); } catch {}
+
     const p = Math.max(0, Math.min(1, Number(BIRDY_PROB)));
     if (p >= 1) {
       set(true, "manual");
-      console.log("[birdy] forced ON via set(true,'manual') because prob=1");
     } else if (p <= 0) {
       set(false, "manual");
-      console.log("[birdy] forced OFF via set(false,'manual') because prob=0");
     } else {
-      const res = decide(p, "manual");
-      console.log("[birdy] decide(", p, ", 'manual') ->", res);
+      decide(p, "manual");
     }
 
     setGameStarted(false);
@@ -265,9 +285,22 @@ export default function GamePage() {
     setIsCountingDown(false);
   }, [isCountingDown, countdown]);
 
-  // 카운트다운 끝나면 시작
+  // 카운트다운 끝나면 시작 + 이때 BGM 재생
   useEffect(() => {
-    if (!isCountingDown && !gameStarted && timeLeft > 0) setGameStarted(true);
+    if (!isCountingDown && !gameStarted && timeLeft > 0) {
+      setGameStarted(true);
+      const el = bgmAudioRef.current;
+      if (el) {
+        try {
+          el.currentTime = 0;
+          el.play();
+        } catch (e) {
+          // 모바일/사파리 등 제스처 필요 시 실패할 수 있음
+          // 게임 중 첫 드래그 등 사용자 제스처 이후 자동으로 play 재시도 할 수 있음
+          console.warn("[BGM] play failed:", e?.message);
+        }
+      }
+    }
   }, [isCountingDown, gameStarted, timeLeft]);
 
   // 타이머
@@ -277,7 +310,7 @@ export default function GamePage() {
     return () => clearInterval(id);
   }, [gameStarted, timeLeft]);
 
-  // (새 규칙) 타임아웃 처리: 빈칸 허용, 숫자칸만 미스 마킹 + 플레이 종료 이벤트
+  // (새 규칙) 타임아웃 처리: 숫자칸만 미스 마킹 + 플레이 종료 이벤트 + BGM 정지
   useEffect(() => {
     if (timeLeft !== 0 || !gameStarted || board.length === 0 || gameOver) return;
 
@@ -324,6 +357,8 @@ export default function GamePage() {
       user_agent: navigator.userAgent,
       referrer: document.referrer,
     });
+
+    try { bgmAudioRef.current?.pause(); } catch {}
   }, [timeLeft, gameStarted, board, gameOver, score]);
 
   // 드래그
@@ -431,7 +466,7 @@ export default function GamePage() {
   const handleMouseUpCell   = (r, c) => onDragEnd({ r, c });
   const handleTouchEndCell  = (r, c) => onDragEnd({ r, c });
 
-  // ✅ 우끼끼(포기) — 원숭이 뿌리고 즉시 종료 (end 로깅 포함)
+  // ✅ 우끼끼(포기) — 원숭이 뿌리고 즉시 종료 + BGM 정지
   const handleGiveUp = useCallback(() => {
     if (!gameStarted || gameOver) return;
     sprinkleMonkeys(140);
@@ -446,6 +481,8 @@ export default function GamePage() {
       user_agent: navigator.userAgent,
       referrer: document.referrer,
     });
+
+    try { bgmAudioRef.current?.pause(); } catch {}
   }, [gameStarted, gameOver, sprinkleMonkeys, score, timeLeft]);
 
   // 드래그 종료 리스너(보드 밖에서 놓을 때 대비)
@@ -497,6 +534,7 @@ export default function GamePage() {
       const ok = typeof result === "object" ? !!result.ok : !!result;
       if (ok) {
         alert("랭킹 저장 완료!");
+        try { bgmAudioRef.current?.pause(); } catch {}
         navigate("/ranking");
       } else {
         const reason =
@@ -522,7 +560,7 @@ export default function GamePage() {
   return (
     <div className={styles.page}>
       <div className={`${styles.container} card-surface`} ref={containerRef}>
-        {/* 🐒 우끼끼 아이콘들 (컨테이너 기준 좌표) */}
+        {/* 🐒 우끼끼 아이콘들 */}
         {monkeys.map((m) => (
           <span
             key={m.id}
@@ -553,7 +591,7 @@ export default function GamePage() {
             </div>
           ) : (
             <>
-              {/* 중앙(점수/타이머) + 우측(볼륨) */}
+              {/* 중앙(점수/타이머) + SFX/BGM 슬라이더 */}
               <div className={styles.statusBar}>
                 <div className={styles.statusRow}>
                   <div className={styles.metricCard}>
@@ -563,6 +601,8 @@ export default function GamePage() {
                     <Timer timeLeft={timeLeft} />
                   </div>
                 </div>
+
+                {/* SFX */}
                 <div className={styles.volWrap}>
                   <span className={styles.volLabel}>🔊</span>
                   <input
@@ -577,6 +617,23 @@ export default function GamePage() {
                     style={{ width: 140 }}
                   />
                   <span className={styles.volLabel}>{(sfxVol * 100).toFixed(0)}%</span>
+                </div>
+
+                {/* BGM (SFX와 동일한 모양/동작) */}
+                <div className={styles.volWrap}>
+                  <span className={styles.volLabel}>🎵</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={bgmVol}
+                    onChange={(e) => setBgmVol(Number(e.target.value))}
+                    className={styles.volSlider}
+                    aria-label="배경음 볼륨"
+                    style={{ width: 140 }}
+                  />
+                  <span className={styles.volLabel}>{(bgmVol * 100).toFixed(0)}%</span>
                 </div>
               </div>
 

@@ -1,4 +1,3 @@
-// src/App.jsx
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
 import HomePage from "./pages/HomePage";
@@ -12,18 +11,18 @@ export default function App() {
   return (
     <ThemeProvider>
       <BirdyModeProvider>
-      <Router>
-        <Routes>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/game" element={<GamePage />} />
-            <Route path="/ranking" element={<RankingPage />} />
-            <Route path="/result" element={<ResultPage />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
-          </BirdyModeProvider>
+        <Router>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/game" element={<GamePage />} />
+              <Route path="/ranking" element={<RankingPage />} />
+              <Route path="/result" element={<ResultPage />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </BirdyModeProvider>
     </ThemeProvider>
   );
 }
