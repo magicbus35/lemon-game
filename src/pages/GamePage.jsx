@@ -101,10 +101,8 @@ const hasValidMove = (board) => {
 };
 
 export default function GamePage() {
-  const { active: birdy, decide, set } = useBirdy();
+  const { active: birdy, set: setBirdy } = useBirdy();
   const navigate = useNavigate();
-
-  const BIRDY_PROB = 0.01;
 
   const containerRef = useRef(null);
   const [monkeys, setMonkeys] = useState([]);
@@ -142,7 +140,7 @@ export default function GamePage() {
     [trimmedName]
   );
 
-  // 🔊 성공 사운드 (birdy 바뀌면 즉시 교체)
+  // 🔊 성공 사운드
   const [sfxVol, setSfxVol] = useState(() => {
     const v = Number(localStorage.getItem("sfxVol"));
     return Number.isFinite(v) ? Math.min(Math.max(v, 0), 1) : 0.15;
@@ -174,7 +172,7 @@ export default function GamePage() {
     if (a) a.volume = sfxVol;
   }, [sfxVol]);
 
-  // 🎵 BGM: 오디오 객체 + 볼륨
+  // 🎵 BGM
   const [bgmVol, setBgmVol] = useState(() => {
     const v = Number(localStorage.getItem("bgmVol"));
     return Number.isFinite(v) ? Math.min(Math.max(v, 0), 1) : 0.3; // 기본 30%
@@ -190,7 +188,7 @@ export default function GamePage() {
       try { el.pause(); } catch {}
       bgmAudioRef.current = null;
     };
-  }, []); // mount 1회
+  }, []);
   useEffect(() => {
     localStorage.setItem("bgmVol", String(bgmVol));
     const el = bgmAudioRef.current;
@@ -232,21 +230,13 @@ export default function GamePage() {
     setMonkeys(items);
   }, []);
 
-  // ▶ 카운트다운/게임 시작 준비 + 플레이 시작 이벤트 기록
+  // ▶ 게임 시작 준비
   const sessionRef = useRef(null);
   const startGame = useCallback(() => {
     // 이전 게임 BGM은 정지
     try { bgmAudioRef.current?.pause(); } catch {}
 
-    const p = Math.max(0, Math.min(1, Number(BIRDY_PROB)));
-    if (p >= 1) {
-      set(true, "manual");
-    } else if (p <= 0) {
-      set(false, "manual");
-    } else {
-      decide(p, "manual");
-    }
-
+    // ⚠️ 랜덤 결정 제거: 현재 birdy 토글 상태를 그대로 사용
     setGameStarted(false);
     setIsCountingDown(true);
     setCountdown(3);
@@ -261,7 +251,6 @@ export default function GamePage() {
     setScore(0);
     setMonkeys([]);
 
-    // 세션ID 만들고 play start 기록
     const sid = crypto.randomUUID();
     sessionRef.current = sid;
     logPlayEvent({
@@ -270,7 +259,7 @@ export default function GamePage() {
       user_agent: navigator.userAgent,
       referrer: document.referrer,
     });
-  }, [decide, set]);
+  }, []);
 
   // 카운트다운
   useEffect(() => {
@@ -295,8 +284,6 @@ export default function GamePage() {
           el.currentTime = 0;
           el.play();
         } catch (e) {
-          // 모바일/사파리 등 제스처 필요 시 실패할 수 있음
-          // 게임 중 첫 드래그 등 사용자 제스처 이후 자동으로 play 재시도 할 수 있음
           console.warn("[BGM] play failed:", e?.message);
         }
       }
@@ -310,7 +297,7 @@ export default function GamePage() {
     return () => clearInterval(id);
   }, [gameStarted, timeLeft]);
 
-  // (새 규칙) 타임아웃 처리: 숫자칸만 미스 마킹 + 플레이 종료 이벤트 + BGM 정지
+  // 타임아웃 처리 + 종료 로깅 + BGM 정지
   useEffect(() => {
     if (timeLeft !== 0 || !gameStarted || board.length === 0 || gameOver) return;
 
@@ -347,7 +334,6 @@ export default function GamePage() {
     setGameStarted(false);
     setGameOver(true);
 
-    // 종료 로깅
     const sid = sessionRef.current || crypto.randomUUID();
     logPlayEvent({
       event: "end",
@@ -389,7 +375,7 @@ export default function GamePage() {
     [isDragging, dragStart]
   );
 
-  // (새 규칙) 판정: 빈칸 허용, 점수=숫자칸 수 + 레몬×4, 제거=숫자칸만
+  // (새 규칙) 판정
   const onDragEnd = useCallback(
     (endRC) => {
       setIsDragging(false);
@@ -423,11 +409,10 @@ export default function GamePage() {
       );
 
       if (sum === 10 && numCount > 0) {
-        const gained = numCount + lemonCount * 4; // 새 규칙 점수
+        const gained = numCount + lemonCount * 4;
         const next = board.map((row) => [...row]);
         const nextLemons = new Set(lemonCells);
 
-        // 숫자칸만 제거(null) + 레몬도 제거
         for (let r = r1; r <= r2; r++) {
           for (let c = c1; c <= c2; c++) {
             if (next[r][c] != null) {
@@ -462,11 +447,10 @@ export default function GamePage() {
     [board, lemonCells, dragStart]
   );
 
-  // 각 셀에서 직접 mouseup/touchend으로 끝 좌표 전달
   const handleMouseUpCell   = (r, c) => onDragEnd({ r, c });
   const handleTouchEndCell  = (r, c) => onDragEnd({ r, c });
 
-  // ✅ 우끼끼(포기) — 원숭이 뿌리고 즉시 종료 + BGM 정지
+  // ✅ 우끼끼(포기) — 즉시 종료 + 로깅 + BGM 정지
   const handleGiveUp = useCallback(() => {
     if (!gameStarted || gameOver) return;
     sprinkleMonkeys(140);
@@ -485,7 +469,7 @@ export default function GamePage() {
     try { bgmAudioRef.current?.pause(); } catch {}
   }, [gameStarted, gameOver, sprinkleMonkeys, score, timeLeft]);
 
-  // 드래그 종료 리스너(보드 밖에서 놓을 때 대비)
+  // 드래그 종료 리스너
   useEffect(() => {
     if (!isDragging) return;
     const up = () => onDragEnd();
@@ -502,7 +486,7 @@ export default function GamePage() {
   const handleTouchStart = (r, c) => onDragStart(r, c);
   const handleTouchMove  = (r, c) => onDragOver(r, c);
 
-  // 점수 저장 → 저장 성공 시 랭킹 페이지로 이동  🔐 비밀번호 포함 + save 로깅
+  // 점수 저장 → 저장 성공 시 랭킹 페이지로 이동
   const handleSaveScore = async () => {
     const trimmedName = (playerName || "").trim();
     const trimmedPw = (playerPw || "").trim();
@@ -591,7 +575,7 @@ export default function GamePage() {
             </div>
           ) : (
             <>
-              {/* 중앙(점수/타이머) + SFX/BGM 슬라이더 */}
+              {/* 중앙(점수/타이머) + SFX/BGM 슬라이더 + 버디 토글 */}
               <div className={styles.statusBar}>
                 <div className={styles.statusRow}>
                   <div className={styles.metricCard}>
@@ -619,7 +603,7 @@ export default function GamePage() {
                   <span className={styles.volLabel}>{(sfxVol * 100).toFixed(0)}%</span>
                 </div>
 
-                {/* BGM (SFX와 동일한 모양/동작) */}
+                {/* BGM */}
                 <div className={styles.volWrap}>
                   <span className={styles.volLabel}>🎵</span>
                   <input
@@ -634,6 +618,19 @@ export default function GamePage() {
                     style={{ width: 140 }}
                   />
                   <span className={styles.volLabel}>{(bgmVol * 100).toFixed(0)}%</span>
+                </div>
+
+                {/* 🐦 버디모드 토글(진행 중에도 변경 가능) */}
+                <div className={styles.birdyToggleInline}>
+                  <label className={styles.switchSm}>
+                    <input
+                      type="checkbox"
+                      checked={!!birdy}
+                      onChange={(e) => setBirdy(e.target.checked, "manual")}
+                    />
+                    <span className={styles.sliderRound} />
+                  </label>
+                  <span className={styles.birdyLabelSm}>{birdy ? "버디 ON" : "버디 OFF"}</span>
                 </div>
               </div>
 
