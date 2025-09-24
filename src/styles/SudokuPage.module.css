@@ -1,0 +1,81 @@
+/* ===== Sudoku classic look (updated) ===== */
+
+.page {
+  padding: 24px 16px;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.centerRow {
+  display: flex;
+  justify-content: center; /* 보드 중앙 정렬 */
+}
+
+.boardWrap {
+  display: inline-block;
+  padding: 10px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+  margin: 0 auto; /* 혹시 모를 부모 레이아웃에서도 중앙 */
+}
+
+/* 한 번에 크기 조절하고 싶으면 --cell 값만 바꾸면 됩니다. */
+.board {
+  --cell: 48px;
+  display: grid;
+  grid-template-columns: repeat(9, var(--cell));
+  grid-template-rows: repeat(9, var(--cell));
+  gap: 0;
+  background: #fff;
+}
+
+/* 기본 셀 */
+.cell {
+  width: var(--cell);
+  height: var(--cell);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--cell) * .46);
+  font-weight: 500;
+  color: #0f172a;          /* 기본 글자색 */
+  background: #ffffff;
+  border: 1px solid #cbd5e1; /* 얇은 회색 라인 */
+  user-select: none;
+  cursor: default;
+}
+
+/* 고정 숫자(퍼즐에 미리 주어진 칸) */
+.given {
+  font-weight: 700;
+  color: #111827;
+}
+
+/* 사용자가 입력한 숫자 */
+.user {
+  color: #e23a3a;          /* 빨간 텍스트만 유지, 배경 하이라이트는 안씀 */
+  font-weight: 600;
+}
+
+/* 선택된 칸 / 같은 행·열(동료) */
+.selected { background: rgba(80, 160, 255, .25); }
+.peer     { background: rgba(80, 160, 255, .08); }
+
+/* (사용 안 함) 오류 배경 클래스를 남겨두지만 붙이지 않음 */
+.error { background: transparent; }
+
+/* ===== 3×3 박스의 굵은 경계선 ===== */
+.cell:nth-child(9n+1) { border-left: 2px solid #475569; }
+.cell:nth-child(9n+4) { border-left: 2px solid #475569; }
+.cell:nth-child(9n+7) { border-left: 2px solid #475569; }
+.cell:nth-child(9n)   { border-right: 2px solid #475569; }
+
+.cell:nth-child(-n+9)                  { border-top: 2px solid #475569; }       /* row 1 */
+.cell:nth-child(n+28):nth-child(-n+36) { border-top: 2px solid #475569; }       /* row 4 */
+.cell:nth-child(n+55):nth-child(-n+63) { border-top: 2px solid #475569; }       /* row 7 */
+.cell:nth-child(n+73)                  { border-bottom: 2px solid #475569; }
+
+@media (max-width: 480px) {
+  .board { --cell: 38px; }
+}

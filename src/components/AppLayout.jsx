@@ -1,6 +1,9 @@
+import React from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useBirdy } from "../context/BirdyMode";
 import { useTheme } from "../theme/ThemeProvider";
+import ThemeToggle from "../components/ThemeToggle";
+import styles from "../styles/AppLayout.module.css";
 
 export default function AppLayout() {
   const { active: birdy } = useBirdy();
@@ -13,46 +16,31 @@ export default function AppLayout() {
   const isDark = theme === "dark";
 
   return (
-    <div className="theme-app min-h-screen select-none">
-      <header className="sticky top-0 z-30 backdrop-blur bg-[var(--surface)]/70 border-b border-[var(--border)]">
-        <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={headerLogo} alt="logo" width={28} height={28} draggable="false" />
-            <span className="text-lg font-semibold tracking-tight">{gameLabel}</span>
-          </Link>
+    <div className={styles.shell}>
+      <header className={styles.header}>
+        <NavLink to="/" className={styles.brand}>
+          <span className={styles.logo}>🍋</span>
+          <span className={styles.brandTextKo}>버디랜드</span>
+          <span className={styles.brandTextEn}>Birdyland</span>
+        </NavLink>
 
-          <nav className="flex items-center gap-2">
-            <NavItem to="/game" iconImgSrc={iconSrc} label={gameLabel} />
-            <NavItem to="/ranking" iconEmoji="🏆" label="랭킹" />
+        <nav className={styles.nav}>
+          <NavLink to="/lemon-game" className={({isActive}) =>
+            `${styles.navBtn} ${isActive ? styles.active : ""}`}>레몬</NavLink>
+          <NavLink to="/sudoku" className={({isActive}) =>
+            `${styles.navBtn} ${isActive ? styles.active : ""}`}>스도쿠</NavLink>
+          <NavLink to="/ranking" className={({isActive}) =>
+            `${styles.navBtn} ${isActive ? styles.active : ""}`}>랭킹</NavLink>
+        </nav>
 
-            {/* ✅ 다크모드 토글만 유지 (버디 토글/상태 뱃지 제거됨) */}
-            <button
-              type="button"
-              onClick={toggle}
-              className="ml-2 px-3 py-2 rounded-lg border transition
-                         bg-[var(--surface-2)] border-[var(--border)]
-                         hover:bg-[var(--cell-hover)]"
-              aria-label="Toggle theme"
-              title={isDark ? "라이트 모드로" : "다크 모드로"}
-            >
-              {isDark ? "🌙" : "☀️"}
-            </button>
-          </nav>
+        <div className={styles.tools}>
+          <ThemeToggle />
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-6">
+      <main className={styles.main}>
         <Outlet />
       </main>
-
-      <footer className="mx-auto max-w-5xl px-4 pb-8 text-sm text-muted">
-        <div className="flex items-center justify-between">
-          <span>© {new Date().getFullYear()} Lemon Game</span>
-          {/* 상태 문구도 깔끔히 제거하거나 남기고 싶다면 아래 한 줄만 변경 */}
-          {/* <span className="opacity-80">{birdy ? "Birdy game" : "Lemon game"}</span> */}
-          <span className="opacity-80">Lemon game</span>
-        </div>
-      </footer>
     </div>
   );
 }

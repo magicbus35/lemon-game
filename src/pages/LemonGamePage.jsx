@@ -7,13 +7,13 @@ import Timer from "../components/Timer";
 import { useBirdy } from "../context/BirdyMode";
 import { saveScore } from "../services/scoreStore";
 import { logPlayEvent } from "../services/analytics";
-import styles from "../styles/GamePage.module.css";
+import styles from "../styles/LemonGamePage.module.css";
 
 const ROWS = 10;
 const COLS = 17;
 const GAME_DURATION = 120;
 
-// 🔊 BGM 파일 (경로/이름에 공백·특수문자 있어 encodeURI)
+// 🔊 BGM 파일
 const BGM_SRC = encodeURI(
   "/sound/Kygo Ft. Conrad - Firestone (John Dee Remix)_[cut_175sec].mp3"
 );
@@ -21,7 +21,6 @@ const BGM_SRC = encodeURI(
 const bonusMessages = [
   '이봐, 친구! 그거 알아? 버디의 본캐는 버디1204라는 놀라운 사실을!',
   '이봐, 친구! 그거 알아? 주급이 무려 200만이 넘는 사람들이 있다는 놀라운 사실을!',
-  '자네 혹시 이스터에그라고 아는가? 뭐.. 그냥 물어봤다네',
   '이 게임을 플레이하는 그대에게 축복을.. "장기백"',
   '"종로단"',
   '화산귀환은 고금제일 정통무협이다 눈마새, 룬의 아이들 화산귀환 레츠고',
@@ -100,7 +99,7 @@ const hasValidMove = (board) => {
   return false;
 };
 
-export default function GamePage() {
+export default function LemonGamePage() {
   const { active: birdy, set: setBirdy } = useBirdy();
   const navigate = useNavigate();
 
@@ -134,11 +133,6 @@ export default function GamePage() {
   const NICK_RE = /^(?=.{2,16}$)[가-힣A-Za-z0-9_-]+$/;
   const FORBIDDEN = ["익명", "anonymous", "anon"];
   const trimmedName = useMemo(() => (playerName || "").trim(), [playerName]);
-  const trimmedPw = useMemo(() => (playerPw || "").trim(), [playerPw]);
-  const isNickValid = useMemo(
-    () => trimmedName.length > 0 && NICK_RE.test(trimmedName) && !FORBIDDEN.some((w) => trimmedName.toLowerCase() === w),
-    [trimmedName]
-  );
 
   // 🔊 성공 사운드
   const [sfxVol, setSfxVol] = useState(() => {
@@ -233,10 +227,8 @@ export default function GamePage() {
   // ▶ 게임 시작 준비
   const sessionRef = useRef(null);
   const startGame = useCallback(() => {
-    // 이전 게임 BGM은 정지
     try { bgmAudioRef.current?.pause(); } catch {}
 
-    // ⚠️ 랜덤 결정 제거: 현재 birdy 토글 상태를 그대로 사용
     setGameStarted(false);
     setIsCountingDown(true);
     setCountdown(3);
@@ -254,6 +246,7 @@ export default function GamePage() {
     const sid = crypto.randomUUID();
     sessionRef.current = sid;
     logPlayEvent({
+      game: "lemon",
       event: "start",
       session_id: sid,
       user_agent: navigator.userAgent,
@@ -280,12 +273,7 @@ export default function GamePage() {
       setGameStarted(true);
       const el = bgmAudioRef.current;
       if (el) {
-        try {
-          el.currentTime = 0;
-          el.play();
-        } catch (e) {
-          console.warn("[BGM] play failed:", e?.message);
-        }
+        try { el.currentTime = 0; el.play(); } catch {}
       }
     }
   }, [isCountingDown, gameStarted, timeLeft]);
@@ -336,6 +324,7 @@ export default function GamePage() {
 
     const sid = sessionRef.current || crypto.randomUUID();
     logPlayEvent({
+      game: "lemon",
       event: "end",
       session_id: sid,
       score,
@@ -375,7 +364,7 @@ export default function GamePage() {
     [isDragging, dragStart]
   );
 
-  // (새 규칙) 판정
+  // 판정
   const onDragEnd = useCallback(
     (endRC) => {
       setIsDragging(false);
@@ -450,7 +439,7 @@ export default function GamePage() {
   const handleMouseUpCell   = (r, c) => onDragEnd({ r, c });
   const handleTouchEndCell  = (r, c) => onDragEnd({ r, c });
 
-  // ✅ 우끼끼(포기) — 즉시 종료 + 로깅 + BGM 정지
+  // ✅ 우끼끼(포기)
   const handleGiveUp = useCallback(() => {
     if (!gameStarted || gameOver) return;
     sprinkleMonkeys(140);
@@ -458,6 +447,7 @@ export default function GamePage() {
 
     const sid = sessionRef.current || crypto.randomUUID();
     logPlayEvent({
+      game: "lemon",
       event: "end",
       session_id: sid,
       score,
@@ -488,10 +478,10 @@ export default function GamePage() {
 
   // 점수 저장 → 저장 성공 시 랭킹 페이지로 이동
   const handleSaveScore = async () => {
-    const trimmedName = (playerName || "").trim();
     const trimmedPw = (playerPw || "").trim();
+    const tn = trimmedName;
 
-    if (!(trimmedName.length > 0 && NICK_RE.test(trimmedName) && !FORBIDDEN.some((w) => trimmedName.toLowerCase() === w))) {
+    if (!(tn.length > 0 && NICK_RE.test(tn) && !FORBIDDEN.some((w) => tn.toLowerCase() === w))) {
       alert("닉네임 형식이 올바르지 않습니다. (2~16자, 한글/영문/숫자/_-)");
       return;
     }
@@ -500,17 +490,18 @@ export default function GamePage() {
       return;
     }
 
-    localStorage.setItem("nickname", trimmedName);
+    localStorage.setItem("nickname", tn);
     try {
-      const result = await saveScore({ nickname: trimmedName, score, password: trimmedPw });
+      const result = await saveScore({ game: "lemon", nickname: tn, score, password: trimmedPw });
 
       // 저장 로깅
       const sid = sessionRef.current || crypto.randomUUID();
       logPlayEvent({
+        game: "lemon",
         event: "save",
         session_id: sid,
         score,
-        nickname: trimmedName,
+        nickname: tn,
         user_agent: navigator.userAgent,
         referrer: document.referrer,
       });
@@ -519,10 +510,9 @@ export default function GamePage() {
       if (ok) {
         alert("랭킹 저장 완료!");
         try { bgmAudioRef.current?.pause(); } catch {}
-        navigate("/ranking");
+        navigate("/ranking?game=lemon");
       } else {
-        const reason =
-          typeof result === "object" && result?.reason ? String(result.reason) : "";
+        const reason = typeof result === "object" && result?.reason ? String(result.reason) : "";
         if (reason === "PASSWORD_MISMATCH") {
           alert("비밀번호가 일치하지 않습니다. 닉네임에 설정된 비밀번호를 입력하세요.");
         } else if (reason === "PASSWORD_REQUIRED") {
@@ -575,7 +565,7 @@ export default function GamePage() {
             </div>
           ) : (
             <>
-              {/* 중앙(점수/타이머) + SFX/BGM 슬라이더 + 버디 토글 */}
+              {/* 중앙(점수/타이머) + SFX/BGM + 버디 토글(플레이 중에만) */}
               <div className={styles.statusBar}>
                 <div className={styles.statusRow}>
                   <div className={styles.metricCard}>
@@ -620,18 +610,20 @@ export default function GamePage() {
                   <span className={styles.volLabel}>{(bgmVol * 100).toFixed(0)}%</span>
                 </div>
 
-                {/* 🐦 버디모드 토글(진행 중에도 변경 가능) */}
-                <div className={styles.birdyToggleInline}>
-                  <label className={styles.switchSm}>
-                    <input
-                      type="checkbox"
-                      checked={!!birdy}
-                      onChange={(e) => setBirdy(e.target.checked, "manual")}
-                    />
-                    <span className={styles.sliderRound} />
-                  </label>
-                  <span className={styles.birdyLabelSm}>{birdy ? "버디 ON" : "버디 OFF"}</span>
-                </div>
+                {/* 버디 토글 (플레이 중에만 노출) */}
+                {gameStarted && !isCountingDown && !gameOver && (
+                  <div className={styles.birdyToggleInline}>
+                    <label className={styles.switchSm}>
+                      <input
+                        type="checkbox"
+                        checked={!!birdy}
+                        onChange={(e) => setBirdy(e.target.checked, "manual")}
+                      />
+                      <span className={styles.sliderRound} />
+                    </label>
+                    <span className={styles.birdyLabelSm}>{birdy ? "버디 ON" : "버디 OFF"}</span>
+                  </div>
+                )}
               </div>
 
               {isCountingDown && countdown > 0 && (
@@ -649,11 +641,11 @@ export default function GamePage() {
                       selectedCells={selectedCells}
                       hoveredCell={hoveredCell}
                       missedCells={missedCells}
-                      onMouseDown={handleMouseDown}
-                      onMouseOver={handleMouseOver}
+                      onMouseDown={(r,c)=>onDragStart(r,c)}
+                      onMouseOver={(r,c)=>onDragOver(r,c)}
                       onMouseUpCell={handleMouseUpCell}
-                      onTouchStartCell={handleTouchStart}
-                      onTouchMoveCell={handleTouchMove}
+                      onTouchStartCell={(r,c)=>onDragStart(r,c)}
+                      onTouchMoveCell={(r,c)=>onDragOver(r,c)}
                       onTouchEndCell={handleTouchEndCell}
                       disabled={!gameStarted || isCountingDown || timeLeft <= 0}
                       cellSize={cellSize}
@@ -664,7 +656,7 @@ export default function GamePage() {
                     "{bonusMessage}"
                   </p>
 
-                  {/* 진행 중: 우끼끼(포기) + 다시하기 */}
+                  {/* 진행 중: 우끼끼 + 다시하기 */}
                   {gameStarted && !isCountingDown && !gameOver && (
                     <div className="mt-4 flex gap-2">
                       <button
@@ -715,6 +707,16 @@ export default function GamePage() {
                     >
                       점수 저장
                     </button>
+                    <button
+                      className={`btn ${styles.btn} ${styles.btnSecondary} mt-1`}
+                      onClick={() => {
+                        try { bgmAudioRef.current?.pause(); } catch {}
+                        navigate("/ranking?game=lemon");
+                      }}
+                    >
+                      랭킹 보기
+                    </button>
+
                   </div>
 
                   <button className={`btn btn-accent ${styles.btn} ${styles.btnPrimary} mt-2`} onClick={startGame}>

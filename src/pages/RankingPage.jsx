@@ -1,134 +1,177 @@
-// src/pages/RankingPage.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   fetchRanking,
   getCurrentSeasonLabelKST,
   fetchRankingByMonth,
   fetchAvailableSeasons,
 } from "../services/scoreStore";
-import { Link } from "react-router-dom";
+import { fetchSudokuAlltime } from "../services/sudokuStore";
 import styles from "../styles/RankingPage.module.css";
 
 function formatKST(isoString) {
-  try {
-    const d = new Date(isoString);
-    return d.toLocaleString("ko-KR", { hour12: false });
-  } catch {
-    return isoString ?? "";
-  }
+  try { return new Date(isoString).toLocaleString("ko-KR", { hour12: false }); }
+  catch { return isoString ?? ""; }
 }
 
 export default function RankingPage() {
+  const [params, setParams] = useSearchParams();
+
+  // URL 쿼리 → 초기상태
+  const initialGame = (params.get("game") === "sudoku" ? "sudoku" : "lemon");
+  const initialDiff = params.get("difficulty") || "hard"; // 스도쿠 기본 hard
+
+  const [gameTab, setGameTab] = useState(initialGame);         // 'lemon' | 'sudoku'
+  const [scope, setScope] = useState("season");                // 레몬: 'season' | 'all'
+  const [sudokuDiff, setSudokuDiff] = useState(initialDiff);   // 스도쿠 난이도
+
+  const currentYM = getCurrentSeasonLabelKST();
+  const [seasons, setSeasons] = useState([]);
+  const [selectedYM, setSelectedYM] = useState("");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const myNick = localStorage.getItem("nickname") || "";
 
-  // scope: 'season' | 'all'
-  const [scope, setScope] = useState("season");
-
-  // 시즌 선택
-  const currentYM = getCurrentSeasonLabelKST();
-  const [seasons, setSeasons] = useState([]);       // DB에 실제 기록 있는 월만
-  const [selectedYM, setSelectedYM] = useState(""); // 로드 후 세팅
-
-  // 시즌 목록 로드(기록 있는 월만)
+  // URL을 상태 변화에 맞춰 갱신
   useEffect(() => {
+    const next = new URLSearchParams(params);
+    next.set("game", gameTab);
+    if (gameTab === "sudoku") next.set("difficulty", sudokuDiff);
+    else next.delete("difficulty");
+    setParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameTab, sudokuDiff]);
+
+  // 시즌 목록 (레몬 탭일 때만)
+  useEffect(() => {
+    if (gameTab !== "lemon") return;
     (async () => {
       try {
         const ys = await fetchAvailableSeasons();
         setSeasons(ys);
-        // 기본 선택: 현재 시즌이 목록에 있으면 현재, 아니면 가장 최근(첫 번째)
-        const cur = getCurrentSeasonLabelKST();
-        setSelectedYM(ys.includes(cur) ? cur : (ys[0] || ""));
+        setSelectedYM(ys.includes(currentYM) ? currentYM : (ys[0] || ""));
       } catch (e) {
         console.error("[RankingPage] load seasons failed:", e);
-        setSeasons([]);
-        setSelectedYM("");
+        setSeasons([]); setSelectedYM("");
       }
     })();
-  }, []);
+  }, [gameTab, currentYM]);
 
-  const myNick = localStorage.getItem("nickname") || "";
-
-  // 데이터 로드
+  // 랭킹 데이터
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
-        if (scope === "all") {
-          const data = await fetchRanking({ scope: "all", limit: 100 });
-          setRows(data);
-        } else {
-          if (!selectedYM) {
-            setRows([]);
-            return;
-          }
-          if (selectedYM === currentYM) {
-            const data = await fetchRanking({ scope: "season", limit: 100 });
-            setRows(data);
+        if (gameTab === "lemon") {
+          if (scope === "all") {
+            setRows(await fetchRanking({ scope: "all", limit: 100 }));
           } else {
-            const data = await fetchRankingByMonth(selectedYM, 100);
-            setRows(data);
+            if (selectedYM === currentYM || !selectedYM) {
+              setRows(await fetchRanking({ scope: "season", limit: 100 }));
+            } else {
+              setRows(await fetchRankingByMonth(selectedYM, 100));
+            }
           }
+        } else {
+          const data = await fetchSudokuAlltime(sudokuDiff, 100);
+          const mapped = (data || []).map((r) => ({
+            nickname: r.nickname,
+            score: r.best_time_ms,
+            created_at: r.achieved_at,
+            __sudoku: true,
+          }));
+          setRows(mapped);
         }
       } catch (e) {
         console.error("[RankingPage] fetch failed:", e);
         setRows([]);
-      } finally {
-        setLoading(false);
-      }
+      } finally { setLoading(false); }
     })();
-  }, [scope, selectedYM, currentYM]);
+  }, [gameTab, scope, selectedYM, currentYM, sudokuDiff]);
+
+  const title = useMemo(() => {
+    if (gameTab === "lemon") {
+      return scope === "season"
+        ? `레몬 시즌 랭킹 (${selectedYM || currentYM})`
+        : "레몬 전체 최고 랭킹";
+    }
+    const diffLabel = { easy:"쉬움", normal:"보통", hard:"어려움", "super-easy":"매우 쉬움" }[sudokuDiff] || sudokuDiff;
+    return `스도쿠 베스트 시간 (${diffLabel})`;
+  }, [gameTab, scope, selectedYM, currentYM, sudokuDiff]);
 
   return (
     <div className={styles.wrap}>
       <div className={styles.topBar}>
-        <h1 className={styles.title}>
-          {scope === "season" ? `시즌 랭킹 (${selectedYM || "-"})` : "전체 최고 랭킹"}
-        </h1>
+        <h1 className={styles.title}>{title}</h1>
 
         <div className={styles.controlsRow}>
+          {/* 게임 탭 */}
           <div className={styles.tabs}>
             <button
-              className={`${styles.tab} ${scope === "season" ? styles.active : ""}`}
-              onClick={() => setScope("season")}
-              aria-pressed={scope === "season"}
-            >
-              시즌
-            </button>
+              className={`${styles.tab} ${gameTab === "lemon" ? styles.active : ""}`}
+              onClick={() => setGameTab("lemon")}
+            >레몬</button>
             <button
-              className={`${styles.tab} ${scope === "all" ? styles.active : ""}`}
-              onClick={() => setScope("all")}
-              aria-pressed={scope === "all"}
-            >
-              전체
-            </button>
+              className={`${styles.tab} ${gameTab === "sudoku" ? styles.active : ""}`}
+              onClick={() => setGameTab("sudoku")}
+            >스도쿠</button>
           </div>
 
-          {scope === "season" && seasons.length > 0 && (
+          {/* 레몬 전용 컨트롤 */}
+          {gameTab === "lemon" && (
+            <>
+              <div className={styles.tabs}>
+                <button
+                  className={`${styles.tab} ${scope === "season" ? styles.active : ""}`}
+                  onClick={() => setScope("season")}
+                >시즌</button>
+                <button
+                  className={`${styles.tab} ${scope === "all" ? styles.active : ""}`}
+                  onClick={() => setScope("all")}
+                >전체</button>
+              </div>
+
+              {scope === "season" && (
+                <div className={styles.seasonPicker}>
+                  <label className={styles.label} htmlFor="seasonSelect">시즌 선택</label>
+                  <select
+                    id="seasonSelect"
+                    className={styles.select}
+                    value={selectedYM}
+                    onChange={(e) => setSelectedYM(e.target.value)}
+                  >
+                    {seasons.map((ym) => (
+                      <option key={ym} value={ym}>
+                        {ym}{ym === currentYM ? " (현재)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* 스도쿠 전용: 난이도 드롭다운 */}
+          {gameTab === "sudoku" && (
             <div className={styles.seasonPicker}>
-              <label className={styles.label} htmlFor="seasonSelect">
-                시즌 선택
-              </label>
+              <label className={styles.label} htmlFor="diffSelect">난이도</label>
               <select
-                id="seasonSelect"
+                id="diffSelect"
                 className={styles.select}
-                value={selectedYM}
-                onChange={(e) => setSelectedYM(e.target.value)}
+                value={sudokuDiff}
+                onChange={(e) => setSudokuDiff(e.target.value)}
               >
-                {seasons.map((ym) => (
-                  <option key={ym} value={ym}>
-                    {ym}
-                    {ym === currentYM ? " (현재)" : ""}
-                  </option>
-                ))}
+                <option value="easy">쉬움</option>
+                <option value="normal">보통</option>
+                <option value="hard">어려움</option>
               </select>
             </div>
           )}
 
           <div className={styles.actions}>
-            <Link className={styles.btn} to="/lemon-game">
-              게임 시작
-            </Link>
+            <Link className={styles.btn} to="/lemon-game">레몬 플레이</Link>
+            <span className={styles.divider} aria-hidden>·</span>
+            <Link className={styles.btn} to="/sudoku">스도쿠 플레이</Link>
           </div>
         </div>
       </div>
@@ -139,23 +182,15 @@ export default function RankingPage() {
             <tr>
               <th style={{ width: 56 }}>순위</th>
               <th>닉네임</th>
-              <th style={{ width: 120 }}>점수</th>
-              <th style={{ width: 200 }}>달성시간(KST)</th>
+              <th style={{ width: 140 }}>{gameTab === "sudoku" ? "기록(초)" : "점수"}</th>
+              <th style={{ width: 220 }}>달성시간(KST)</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={4} className={styles.loadingCell}>
-                  불러오는 중...
-                </td>
-              </tr>
+              <tr><td colSpan={4} className={styles.loadingCell}>불러오는 중...</td></tr>
             ) : rows.length === 0 ? (
-              <tr>
-                <td colSpan={4} className={styles.emptyCell}>
-                  랭킹 데이터가 없습니다.
-                </td>
-              </tr>
+              <tr><td colSpan={4} className={styles.emptyCell}>랭킹 데이터가 없습니다.</td></tr>
             ) : (
               rows.map((row, idx) => (
                 <tr key={`${row.nickname}-${row.created_at}-${idx}`}>
@@ -166,7 +201,7 @@ export default function RankingPage() {
                       <span className={styles.meBadge}>내 기록</span>
                     )}
                   </td>
-                  <td>{row.score}</td>
+                  <td>{row.__sudoku ? (Number(row.score) / 1000).toFixed(2) : row.score}</td>
                   <td>{formatKST(row.created_at)}</td>
                 </tr>
               ))

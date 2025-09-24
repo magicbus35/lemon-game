@@ -1,0 +1,199 @@
+.shell {
+  min-height: 100dvh;
+  background: var(--c-bg, #f7f9fc);
+  color: var(--c-text, #1f2937);
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  backdrop-filter: saturate(140%) blur(6px);
+  background: rgba(255,255,255,.75);
+  border-bottom: 1px solid rgba(0,0,0,.06);
+}
+
+.headerInner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.logo {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.brandText {
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: .2px;
+  color: #111827;
+}
+
+.nav {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 8px;
+  padding: 4px;
+  background: #eef2f7;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.04);
+}
+
+.navBtn {
+  appearance: none;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  color: #334155;
+  transition: background .18s ease, color .18s ease, box-shadow .18s ease;
+}
+
+.navBtn:hover {
+  background: #e3eaf2;
+}
+
+.active {
+  background: #0ea5e9;      /* 하이라이트 색 */
+  color: white !important;
+  box-shadow: 0 2px 10px rgba(14,165,233,.35);
+}
+
+.main {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 18px 16px 48px;
+}
+
+:root {
+  --c-bg: #ffffff;
+  --c-text: #0f172a;
+  --c-border: #e2e8f0;
+  --c-chip: #f4f6fa;
+}
+html[data-theme="dark"] {
+  --c-bg: #0b1020;
+  --c-text: #e5e7eb;
+  --c-border: #253047;
+  --c-chip: #141b2f;
+}
+html, body, #root { height: 100%; }
+body { background: var(--c-bg); color: var(--c-text); }
+
+.shell { min-height: 100%; display: flex; flex-direction: column; }
+.header {
+  position: sticky; top: 0; z-index: 50;
+  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--c-bg) 85%, transparent);
+  border-bottom: 1px solid var(--c-border);
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  align-items: center; gap: 12px;
+  padding: 10px 16px;
+}
+.brand { display: inline-flex; align-items: baseline; gap: 8px; text-decoration: none; color: var(--c-text); }
+.logo { font-size: 18px; line-height: 1; }
+.brandTextKo { font-weight: 800; font-size: 18px; letter-spacing: 0.2px; }
+.brandTextEn { font-size: 12px; color: #9aa3af; }
+
+.nav { display: inline-flex; gap: 8px; }
+.navBtn {
+  padding: 6px 12px; border-radius: 10px;
+  border: 1px solid var(--c-border);
+  background: var(--c-chip);
+  text-decoration: none; color: var(--c-text);
+  font-weight: 600; font-size: 14px;
+}
+.active {
+  background: #10b98122;
+  border-color: #10b98155;
+  box-shadow: 0 0 0 2px #10b98122 inset;
+}
+
+.tools { display: flex; justify-content: flex-end; gap: 8px; }
+.theme-toggle {
+  width: 36px; height: 36px; border-radius: 999px;
+  border: 1px solid var(--c-border);
+  background: var(--c-chip);
+  font-size: 18px; line-height: 1;
+}
+
+.main { max-width: 980px; width: 100%; margin: 0 auto; padding: 16px; }
+html[data-theme="dark"] .theme-toggle {
+  background: #1e293b;       /* 짙은 배경 */
+  border-color: #334155;
+  color: #f9fafb;            /* 아이콘/이모지 밝게 */
+}
+
+html[data-theme="dark"] .navBtn {
+  background: var(--c-chip);
+  color: var(--c-text);
+}
+html[data-theme="dark"] .navBtn:hover {
+  background: #1f2937;       /* hover 시 확실히 구분 */
+}
+
+html[data-theme="dark"] .active {
+  background: #10b98144;     /* 에메랄드 강조 */
+  border-color: #10b981aa;
+  color: #f9fafb !important;
+  box-shadow: 0 0 0 2px #10b98144 inset;
+}
+
+/* ── 다크 모드에서 헤더 네비 알약 바/버튼 비주얼 개선 ───────────────────────── */
+
+/* 라이트/다크 공용 변수 */
+:root {
+  --nav-bg: #eef2f7;                    /* light bar background */
+  --nav-border: rgba(0,0,0,.06);
+  --nav-btn-hover: #e3eaf2;
+}
+html[data-theme="dark"] {
+  --nav-bg: rgba(255,255,255,.06);      /* dark bar background (살짝 투명) */
+  --nav-border: rgba(255,255,255,.10);
+  --nav-btn-hover: rgba(255,255,255,.10);
+}
+
+/* 알약 바 자체가 다크에서 하얗게 보이지 않도록 */
+.nav {
+  background: var(--nav-bg);
+  box-shadow: inset 0 0 0 1px var(--nav-border);
+}
+
+/* 기본 버튼은 바와 자연스럽게 어울리게 */
+.navBtn {
+  border-color: transparent;            /* 바 안에 들어가 있으니 외곽선은 투명 */
+  background: transparent;              /* 기본은 바 색을 그대로 보여줌 */
+  color: var(--c-text);
+}
+.navBtn:hover {
+  background: var(--nav-btn-hover);     /* 다크/라이트 각각 변수로 */
+}
+
+/* 활성 버튼은 확실한 대비 + 다크에서 빛 번짐 줄이기 */
+.active {
+  background: #0ea5e9;                  /* 동일한 포커스 컬러 */
+  color: #fff !important;
+  border-color: transparent;
+  box-shadow: 0 2px 10px rgba(14,165,233,.28); /* 다크에서 과한 발광 방지 */
+}
+
+/* 다크 전용: 텍스트/경계 대비 조금 더 끌어올림 */
+html[data-theme="dark"] .navBtn {
+  color: #e5e7eb;
+}
+html[data-theme="dark"] .active {
+  box-shadow: 0 0 0 2px rgba(14,165,233,.25) inset; /* 안쪽 강조 */
+}

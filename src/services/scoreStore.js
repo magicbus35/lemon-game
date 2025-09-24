@@ -10,74 +10,87 @@ import { supabase } from "../lib/supabaseClient";
 export async function saveScore(payload) {
   try {
     const { nickname, score, password } = payload || {};
+    console.log("[saveScore] input:", payload);
+
     if (
       typeof nickname !== "string" ||
       !nickname.trim() ||
       typeof score !== "number" ||
       Number.isNaN(score)
     ) {
+      console.warn("[saveScore] BAD_INPUT:", { nickname, score });
       return { ok: false, reason: "BAD_INPUT" };
     }
-    const nick = nickname.trim();
+    const nick = nickname.trim().toLowerCase();
+    const pass = String(password ?? "").trim();
 
-    // 🥾 로컬 폴백(개발/오프라인)
+    // 로컬 폴백
     if (!supabase) {
+      console.log("[saveScore] supabase null → local fallback");
       const raw = localStorage.getItem("scores");
       const arr = raw ? JSON.parse(raw) : [];
       arr.push({
         id: `local_${Date.now()}`,
         nickname: nick,
         score,
+        game: "lemon",
         created_at: new Date().toISOString(),
       });
       localStorage.setItem("scores", JSON.stringify(arr));
       return { ok: true };
     }
 
-    // 🔐 비번이 있는 경우: 서버 RPC로 처리
-    if (password && String(password).trim()) {
-      const { data, error } = await supabase.rpc("save_score_secure", {
-        p_nickname: nick,
-        p_password: String(password),
-        p_score: score,
-      });
-
-      if (error) {
-        console.error("[RPC save_score_secure] error:", error);
-        // 서버에서 상세 reason을 내려주는 경우가 아니라면 일반 에러 처리
-        return { ok: false };
-      }
-
-      // 일부 환경에서 jsonb가 배열로 올 수 있어 정규화
-      const norm = Array.isArray(data) ? data[0] : data;
-
-      // 서버가 {ok, reason?} 형태로 반환
-      if (norm && typeof norm === "object" && "ok" in norm) {
-        if (!norm.ok && norm.reason) {
-          console.warn("[RPC save_score_secure] fail:", norm.reason);
-        }
-        return { ok: !!norm.ok, reason: norm.reason };
-      }
-
-      // 혹시 boolean 스칼라로 오는 경우
-      return { ok: !!norm };
+    // 비밀번호 없으면 거부
+    if (!pass) {
+      console.warn("[saveScore] PASSWORD_REQUIRED");
+      return { ok: false, reason: "PASSWORD_REQUIRED" };
     }
 
-    // 비번 없이 과거 방식(호환)
-    const { error } = await supabase
-      .from("scores")
-      .insert({ nickname: nick, score })
-      .select("id")
-      .single();
+    // 닉네임 선점/검증
+    console.log("[saveScore] calling nick_set_or_check:", { nick, pass });
+    const { data: ok1, error: e1 } = await supabase.rpc("nick_set_or_check", {
+      p_nickname: nick,
+      p_password: pass,
+    });
+    console.log("[saveScore] nick_set_or_check result:", { ok1, e1 });
+
+    if (e1) {
+      console.error("[nick_set_or_check] error:", e1);
+      return { ok: false, reason: "RPC_ERROR" };
+    }
+    if (!ok1) {
+      console.warn("[saveScore] PASSWORD_MISMATCH");
+      return { ok: false, reason: "PASSWORD_MISMATCH" };
+    }
+
+    // 점수 저장
+    console.log("[saveScore] calling save_score_secure:", {
+      nick,
+      pass,
+      score,
+    });
+    const { data, error } = await supabase.rpc("save_score_secure", {
+      p_nickname: nick,
+      p_password: pass,
+      p_score: score,
+    });
+    console.log("[saveScore] save_score_secure result:", { data, error });
 
     if (error) {
-      console.error("[scores.insert] error:", error);
-      return { ok: false };
+      console.error("[RPC save_score_secure] error:", error);
+      return { ok: false, reason: "RPC_ERROR" };
     }
-    return { ok: true };
+
+    const norm = Array.isArray(data) ? data[0] : data;
+    console.log("[saveScore] normalized result:", norm);
+
+    if (norm && typeof norm === "object" && "ok" in norm) {
+      return { ok: !!norm.ok, reason: norm.reason };
+    }
+    return { ok: !!norm };
   } catch (e) {
-    console.error("[saveScore] unexpected error:", e?.message || e);
-    return { ok: false };
+    console.error("[saveScore] unexpected error:", e);
+    return { ok: false, reason: "UNEXPECTED" };
   }
 }
 

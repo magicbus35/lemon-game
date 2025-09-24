@@ -135,3 +135,25 @@
 @media (max-width: 520px) {
   .table { border-spacing: 0 1px; }
 }
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;             /* ← 버튼 사이 간격 */
+  margin-left: auto;
+}
+
+.actions .btn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--c-border, #e3e6eb);
+  background: var(--c-chip, #f8fafc);
+  font-size: 14px;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.divider {
+  color: #9aa3af;
+  user-select: none;
+}
