@@ -1,19 +1,14 @@
 // src/pages/SudokuPage.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "../styles/SudokuPage.module.css";
 import { saveSudokuResult } from "../services/sudokuStore";
 
 /** =====================
- *  Sudoku engine
- *  - Generator (unique solution)
- *  - Rater by strategies
- *  - Simple solver with strategies
+ *  Sudoku engine (로컬 폴백용 그대로 유지)
  *  ===================== */
-const N = 9;
 const DIGITS = [1,2,3,4,5,6,7,8,9];
 const range9 = [...Array(9).keys()];
-
 const dc = (b) => b.map(r => r.slice());
 
 function rowVals(b, r){ return new Set(b[r].filter(v => v)); }
@@ -24,28 +19,21 @@ function boxVals(b, r, c){
   for(let i=0;i<3;i++) for(let j=0;j<3;j++){ const v=b[br+i][bc+j]; if(v) s.add(v); }
   return s;
 }
-
 function candidates(b, r, c){
   if(b[r][c]) return new Set();
   const used = new Set([...rowVals(b,r), ...colVals(b,c), ...boxVals(b,r,c)]);
-  const s = new Set();
-  for(const d of DIGITS) if(!used.has(d)) s.add(d);
-  return s;
+  const s = new Set(); for(const d of DIGITS) if(!used.has(d)) s.add(d); return s;
 }
-
 function findEmptyCellMRV(b){
   let best=null, bestSize=10;
   for(let r=0;r<9;r++) for(let c=0;c<9;c++) if(!b[r][c]){
-    const cand = candidates(b,r,c);
-    const sz=cand.size;
+    const cand = candidates(b,r,c); const sz=cand.size;
     if(sz<bestSize){ best={r,c, cand}; bestSize=sz; if(sz===1) return best; }
   }
   return best;
 }
-
 function solveBacktrack(board, cap=2){
-  const b=dc(board);
-  let solutions=0;
+  const b=dc(board); let solutions=0;
   function dfs(){
     if(solutions>=cap) return;
     const m = findEmptyCellMRV(b);
@@ -61,13 +49,11 @@ function solveBacktrack(board, cap=2){
   dfs();
   return solutions;
 }
-
 function generateFullSolution(){
   const b = Array.from({length:9}, ()=>Array(9).fill(0));
-  function fillCell(idx=0){
+  (function fillCell(idx=0){
     if(idx===81) return true;
     const r= Math.floor(idx/9), c=idx%9;
-    if(b[r][c]) return fillCell(idx+1);
     const digits = DIGITS.slice().sort(()=>Math.random()-0.5);
     for(const d of digits){
       if(!rowVals(b,r).has(d) && !colVals(b,c).has(d) && !boxVals(b,r,c).has(d)){
@@ -77,11 +63,9 @@ function generateFullSolution(){
       }
     }
     return false;
-  }
-  fillCell();
+  })();
   return b;
 }
-
 function makePuzzleUnique(full, cluesTarget=36){
   const b = dc(full);
   const positions = [];
@@ -110,32 +94,23 @@ function makePuzzleUnique(full, cluesTarget=36){
   }
   return b;
 }
-
-/** ----- Strategy-based solver (rating) ----- */
 function applySingles(b){
   let progress=false;
   for(let r=0;r<9;r++) for(let c=0;c<9;c++){
     if(!b[r][c]){
       const cand = candidates(b,r,c);
-      if(cand.size===1){
-        b[r][c]=[...cand][0];
-        progress=true;
-      }
+      if(cand.size===1){ b[r][c]=[...cand][0]; progress=true; }
     }
   }
   // hidden singles
   for(let unit=0;unit<27;unit++){
-    const counts = new Map();
-    const cells = [];
+    const counts = new Map(); const cells = [];
     if(unit<9){
-      const r=unit;
-      for(let c=0;c<9;c++) if(!b[r][c]){ const cand=candidates(b,r,c); cells.push({r,c,cand}); for(const d of cand) counts.set(d,(counts.get(d)||0)+1); }
+      const r=unit; for(let c=0;c<9;c++) if(!b[r][c]){ const cand=candidates(b,r,c); cells.push({r,c,cand}); for(const d of cand) counts.set(d,(counts.get(d)||0)+1); }
     }else if(unit<18){
-      const c=unit-9;
-      for(let r=0;r<9;r++) if(!b[r][c]){ const cand=candidates(b,r,c); cells.push({r,c,cand}); for(const d of cand) counts.set(d,(counts.get(d)||0)+1); }
+      const c=unit-9; for(let r=0;r<9;r++) if(!b[r][c]){ const cand=candidates(b,r,c); cells.push({r,c,cand}); for(const d of cand) counts.set(d,(counts.get(d)||0)+1); }
     }else{
-      const br=(unit-18);
-      const r0=Math.floor(br/3)*3, c0=(br%3)*3;
+      const br=(unit-18), r0=Math.floor(br/3)*3, c0=(br%3)*3;
       for(let dr=0;dr<3;dr++) for(let dc=0;dc<3;dc++){
         const r=r0+dr, c=c0+dc;
         if(!b[r][c]){ const cand=candidates(b,r,c); cells.push({r,c,cand}); for(const d of cand) counts.set(d,(counts.get(d)||0)+1); }
@@ -150,7 +125,6 @@ function applySingles(b){
   }
   return progress;
 }
-
 function applyLockedCandidates(b){
   let progress=false;
   for(let box=0;box<9;box++){
@@ -190,7 +164,6 @@ function applyLockedCandidates(b){
   }
   return progress;
 }
-
 function applyPairsTriples(b){
   let progress=false;
   const units = [];
@@ -219,10 +192,8 @@ function applyPairsTriples(b){
   }
   return progress;
 }
-
 function strategySolve(board, maxDepth=0){
-  const b = dc(board);
-  let madeProgress=true;
+  const b = dc(board); let madeProgress=true;
   while(madeProgress){
     madeProgress=false;
     if(applySingles(b)) { madeProgress=true; continue; }
@@ -237,7 +208,6 @@ function strategySolve(board, maxDepth=0){
   }
   return { solved, required:"hard" };
 }
-
 function ratePuzzle(puzzle){
   const res1 = strategySolve(puzzle, 0);
   if(res1.solved && res1.required==="singles-or-basic") return "easy";
@@ -247,7 +217,6 @@ function ratePuzzle(puzzle){
   if(sols===1) return "hard";
   return "expert";
 }
-
 function generateRatedPuzzle(target="normal"){
   const allow = {
     easy: ["easy"],
@@ -269,11 +238,10 @@ function generateRatedPuzzle(target="normal"){
   return { puzzle, solution: full, rating:"unknown" };
 }
 
-/** ===================== UI (notes/undo/erase) ===================== */
+/** ===================== UI ===================== */
 function SudokuGrid({ cells, selected, setSelected, memoMode, onNumber, onErase }){
   return (
     <div className={styles.boardWrap}>
-      {/* 프레임(바깥 굵은 테두리) 추가 */}
       <div className={styles.frame}>
         <div className={styles.board} role="grid" aria-label="스도쿠 보드">
           {cells.map((row, r) =>
@@ -307,7 +275,7 @@ function SudokuGrid({ cells, selected, setSelected, memoMode, onNumber, onErase 
                     <span className={styles.value}>{cell.value}</span>
                   ) : (
                     <div className={styles.notes}>
-                      {[1,2,3,4,5,6,7,8,9].map((d) => (
+                      {DIGITS.map((d) => (
                         <span
                           key={d}
                           className={styles.note}
@@ -326,7 +294,7 @@ function SudokuGrid({ cells, selected, setSelected, memoMode, onNumber, onErase 
       </div>
 
       <div className={styles.keypad}>
-        {[1,2,3,4,5,6,7,8,9].map((d) => (
+        {DIGITS.map((d) => (
           <button key={d} onClick={() => onNumber(d)} className={styles.key}>
             {d}
           </button>
@@ -339,7 +307,7 @@ function SudokuGrid({ cells, selected, setSelected, memoMode, onNumber, onErase 
 export default function SudokuPage(){
   const navigate = useNavigate();
 
-  // meta
+  // board meta
   const [difficulty, setDifficulty] = useState("normal");
   const [startTs, setStartTs] = useState(0);
   const [elapsed, setElapsed] = useState(0);
@@ -352,17 +320,21 @@ export default function SudokuPage(){
   const [selected, setSelected] = useState(null);
   const [memoMode, setMemoMode] = useState(false);
 
-  // history for undo
+  // undo history
   const [history, setHistory] = useState([]);
 
+  // === Worker 상태 ===
+  const workerRef = useRef(null);
+  const jobIdRef = useRef(0);
+  const [loading, setLoading] = useState(false);
+
+  // tick
   useEffect(()=>{
     const id = setInterval(()=> setElapsed(Math.floor((Date.now()-startTs)/1000)), 250);
     return ()=> clearInterval(id);
   }, [startTs]);
 
-  function pushHistory(prev){
-    setHistory(h => [...h.slice(-199), prev]);
-  }
+  function pushHistory(prev){ setHistory(h => [...h.slice(-199), prev]); }
 
   function fromGrid(grid, fixedMask){
     return grid.map((row,r)=> row.map((v,c)=> ({
@@ -370,7 +342,44 @@ export default function SudokuPage(){
     })));
   }
 
+  // Worker 초기화
+  useEffect(() => {
+    try{
+      workerRef.current = new Worker(
+        new URL("../workers/sudokuWorker.js", import.meta.url),
+        { type: "module" } // Vite/CRA(Webpack5) 모두 호환
+      );
+      workerRef.current.onmessage = (e) => {
+        const { jobId, ok, data } = e.data || {};
+        if (jobId !== jobIdRef.current) return; // 오래된 응답 무시
+        setLoading(false);
+        if (!ok || !data) return;
+        const { puzzle, solution } = data;
+        const fixedMask = puzzle.map(row => row.map(v => !!v));
+        setCells(fromGrid(puzzle, fixedMask));
+        setSolution(solution);
+        setSelected(null);
+        setMemoMode(false);
+        setHistory([]);
+        setDone(false);
+        setStartTs(Date.now());
+      };
+    }catch(e){
+      console.warn("Worker 초기화 실패. 로컬 엔진 폴백 사용:", e);
+      workerRef.current = null;
+    }
+    return () => { workerRef.current?.terminate(); };
+  }, []);
+
+  // 새 퍼즐 생성 (Worker 우선, 폴백은 로컬 엔진)
   async function newPuzzle(diff = difficulty){
+    if (workerRef.current) {
+      setLoading(true);
+      jobIdRef.current += 1;
+      workerRef.current.postMessage({ type: "gen", jobId: jobIdRef.current, difficulty: diff });
+      return;
+    }
+    // ---- 폴백: 로컬 엔진 동기 실행 (UI가 잠깐 멈출 수 있음) ----
     const { puzzle, solution:sol } = generateRatedPuzzle(diff);
     const fixedMask = puzzle.map(row=> row.map(v=> !!v));
     setCells(fromGrid(puzzle, fixedMask));
@@ -386,40 +395,31 @@ export default function SudokuPage(){
 
   // actions
   function applyNumber(n){
-    if(!selected) return;
+    if(!selected || loading) return;
     const {r,c}=selected;
     const before = JSON.stringify(cells.map(row=> row.map(cell=> ({v:cell.value,f:cell.fixed,n:[...cell.notes]}))));
     const next = cells.map(row=> row.map(cell=> ({...cell, notes:new Set(cell.notes)})));
     const cell = next[r][c];
     if(cell.fixed) return;
-    if(memoMode){
-      if(cell.notes.has(n)) cell.notes.delete(n); else cell.notes.add(n);
-    }else{
-      cell.value = n;
-      cell.notes.clear();
-    }
+    if(memoMode){ if(cell.notes.has(n)) cell.notes.delete(n); else cell.notes.add(n); }
+    else{ cell.value = n; cell.notes.clear(); }
     pushHistory(before);
     setCells(next);
     const flat = next.flat();
     if(flat.every(cell => cell.value)){
-      const allOk = next.every((row,r)=> row.every((cell,c)=> cell.value===solution[r][c]));
+      const allOk = next.every((row,ri)=> row.every((cell,ci)=> cell.value===solution[ri][ci]));
       if(allOk){ setDone(true); }
     }
   }
-
   function erase(){
-    if(!selected) return;
+    if(!selected || loading) return;
     const {r,c}=selected;
-    const cell = cells[r][c];
-    if(cell.fixed) return;
     const before = JSON.stringify(cells.map(row=> row.map(cell=> ({v:cell.value,f:cell.fixed,n:[...cell.notes]}))));
     const next = cells.map(row=> row.map(cell=> ({...cell, notes:new Set(cell.notes)})));
-    next[r][c].value=0; next[r][c].notes.clear();
-    pushHistory(before);
-    setCells(next);
+    if(!next[r][c].fixed){ next[r][c].value=0; next[r][c].notes.clear(); pushHistory(before); setCells(next); }
   }
-
   function undo(){
+    if(loading) return;
     setHistory(h => {
       if(h.length===0) return h;
       const last = h[h.length-1];
@@ -431,7 +431,6 @@ export default function SudokuPage(){
       return h.slice(0,-1);
     });
   }
-
   function handleSave(){
     saveSudokuResult({ seconds: elapsed, difficulty });
     navigate("/ranking?game=sudoku&difficulty="+encodeURIComponent(difficulty));
@@ -442,17 +441,25 @@ export default function SudokuPage(){
       <div className={styles.header}>
         <h1>스도쿠</h1>
         <div className={styles.controls}>
-          <span className={styles.time}>시간: <b>{Math.floor(elapsed/60)}:{String(elapsed%60).padStart(2,"0")}</b></span>
+          <span className={styles.time}>
+            시간: <b>{Math.floor(elapsed/60)}:{String(elapsed%60).padStart(2,"0")}</b>
+          </span>
           <label className={styles.selectWrap}>
             난이도{" "}
-            <select value={difficulty} onChange={e=>{ setDifficulty(e.target.value); newPuzzle(e.target.value); }}>
+            <select
+              value={difficulty}
+              onChange={e=>{ setDifficulty(e.target.value); newPuzzle(e.target.value); }}
+              disabled={loading}
+            >
               <option value="easy">쉬움</option>
               <option value="normal">보통</option>
               <option value="hard">어려움</option>
               <option value="expert">전문가</option>
             </select>
           </label>
-          <button className={styles.btn} onClick={()=> newPuzzle(difficulty)}>새 퍼즐</button>
+          <button className={styles.btn} onClick={()=> newPuzzle(difficulty)} disabled={loading}>
+            {loading ? "생성 중..." : "새 퍼즐"}
+          </button>
         </div>
       </div>
 
@@ -467,9 +474,13 @@ export default function SudokuPage(){
 
       <div className={styles.footer}>
         <div className={styles.actions}>
-          <button onClick={undo} className={styles.action}><span className={styles.icon}>↩</span> 실행 취소</button>
-          <button onClick={erase} className={styles.action}><span className={styles.icon}>⌫</span> 지우기</button>
-          <button onClick={()=> setMemoMode(v=>!v)} className={styles.action}>
+          <button onClick={undo} className={styles.action} disabled={loading}>
+            <span className={styles.icon}>↩</span> 실행 취소
+          </button>
+          <button onClick={erase} className={styles.action} disabled={loading}>
+            <span className={styles.icon}>⌫</span> 지우기
+          </button>
+          <button onClick={()=> setMemoMode(v=>!v)} className={styles.action} disabled={loading}>
             <span className={styles.icon}>✎</span> 메모 <span className={styles.badge}>{memoMode? "On":"Off"}</span>
           </button>
         </div>
