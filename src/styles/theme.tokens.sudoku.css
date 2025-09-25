@@ -1,0 +1,2 @@
+:root{ --sudoku-user: #3b82f6; }
+html.dark,[data-theme="dark"]{ --sudoku-user: #93c5fd; }

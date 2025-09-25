@@ -93,7 +93,7 @@ export default function HomePage() {
           </p>
           <div className={styles.cardActions}>
             <Link to="/sudoku" className={styles.primaryBtn}>플레이하기</Link>
-            <Link to="/ranking?game=sudoku&difficulty=hard" className={styles.linkBtn}>랭킹 보기</Link>
+            <Link to="/ranking?game=sudoku&difficulty=easy" className={styles.linkBtn}>랭킹 보기</Link>
           </div>
 
           <div className={styles.topBox}>
