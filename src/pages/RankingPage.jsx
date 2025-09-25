@@ -164,6 +164,7 @@ export default function RankingPage() {
                 <option value="easy">쉬움</option>
                 <option value="normal">보통</option>
                 <option value="hard">어려움</option>
+                <option value="expert">전문가</option>
               </select>
             </div>
           )}
