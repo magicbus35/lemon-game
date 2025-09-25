@@ -149,3 +149,38 @@
 @media (max-width: 560px){
   .board{ --cell: 36px; width: calc(var(--cell) * 9); height: calc(var(--cell) * 9); }
 }
+
+/* 저장 패널 */
+.savePanel{
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--panel, #f8fafc);
+  border: 1px solid var(--panel-border, rgba(0,0,0,.08));
+  border-radius: 10px;
+}
+.saveTitle{
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.saveFields{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.input{
+  background: var(--input-bg, #fff);
+  color: var(--input-text, inherit);
+  border: 1px solid var(--input-border, rgba(0,0,0,.15));
+  border-radius: 8px;
+  padding: 8px 10px;
+  min-width: 160px;
+}
+.btnPrimary{
+  background: #10b981;
+  color: #fff;
+  border: 1px solid #0ea271;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+}

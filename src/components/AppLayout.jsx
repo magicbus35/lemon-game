@@ -27,8 +27,11 @@ export default function AppLayout() {
         <nav className={styles.nav}>
           <NavLink to="/lemon-game" className={({isActive}) =>
             `${styles.navBtn} ${isActive ? styles.active : ""}`}>레몬</NavLink>
-          <NavLink to="/sudoku" className={({isActive}) =>
-            `${styles.navBtn} ${isActive ? styles.active : ""}`}>스도쿠</NavLink>
+          <NavLink to="/sudoku?difficulty=easy" className={({ isActive }) =>
+            [styles.navBtn, isActive ? styles.active : ""].join(" ")
+          }>
+            스도쿠
+          </NavLink>
           <NavLink to="/ranking" className={({isActive}) =>
             `${styles.navBtn} ${isActive ? styles.active : ""}`}>랭킹</NavLink>
         </nav>

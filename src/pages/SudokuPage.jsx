@@ -239,7 +239,7 @@ function generateRatedPuzzle(target="normal"){
 }
 
 /** ===================== UI ===================== */
-function SudokuGrid({ cells, selected, setSelected, memoMode, onNumber, onErase }){
+function SudokuGrid({ cells, selected, setSelected, memoMode, onNumber, onErase, disabled }){
   return (
     <div className={styles.boardWrap}>
       <div className={styles.frame}>
@@ -269,7 +269,7 @@ function SudokuGrid({ cells, selected, setSelected, memoMode, onNumber, onErase 
                 <div
                   key={`${r}-${c}`}
                   className={cls}
-                  onClick={() => setSelected({ r, c })}
+                  onClick={() => !disabled && setSelected({ r, c })}
                 >
                   {cell.value ? (
                     <span className={styles.value}>{cell.value}</span>
@@ -293,9 +293,9 @@ function SudokuGrid({ cells, selected, setSelected, memoMode, onNumber, onErase 
         </div>
       </div>
 
-      <div className={styles.keypad}>
+      <div className={styles.keypad} aria-disabled={disabled}>
         {DIGITS.map((d) => (
-          <button key={d} onClick={() => onNumber(d)} className={styles.key}>
+          <button key={d} onClick={() => onNumber(d)} className={styles.key} disabled={disabled}>
             {d}
           </button>
         ))}
@@ -307,13 +307,21 @@ function SudokuGrid({ cells, selected, setSelected, memoMode, onNumber, onErase 
 export default function SudokuPage(){
   const navigate = useNavigate();
 
-  // board meta
-  const [difficulty, setDifficulty] = useState("normal");
+  // 기본 난이도: easy
+  const [difficulty, setDifficulty] = useState("easy");
+
+  // 타이머
+  const [running, setRunning] = useState(false);
   const [startTs, setStartTs] = useState(0);
   const [elapsed, setElapsed] = useState(0);
-  const [done, setDone] = useState(false);
 
-  // board state
+  // 완료/저장
+  const [done, setDone] = useState(false);
+  const [name, setName] = useState("");
+  const [pass, setPass] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  // 보드 상태
   const emptyCell = { value: 0, fixed: false, notes: new Set() };
   const [cells, setCells] = useState(()=> Array.from({length:9},()=> Array.from({length:9},()=> ({...emptyCell, notes:new Set()})) ));
   const [solution, setSolution] = useState(()=> Array.from({length:9},()=> Array(9).fill(0)));
@@ -323,16 +331,17 @@ export default function SudokuPage(){
   // undo history
   const [history, setHistory] = useState([]);
 
-  // === Worker 상태 ===
+  // Worker 상태
   const workerRef = useRef(null);
   const jobIdRef = useRef(0);
   const [loading, setLoading] = useState(false);
 
-  // tick
+  // 타이머 tick
   useEffect(()=>{
+    if(!running || !startTs) return;
     const id = setInterval(()=> setElapsed(Math.floor((Date.now()-startTs)/1000)), 250);
     return ()=> clearInterval(id);
-  }, [startTs]);
+  }, [running, startTs]);
 
   function pushHistory(prev){ setHistory(h => [...h.slice(-199), prev]); }
 
@@ -347,7 +356,7 @@ export default function SudokuPage(){
     try{
       workerRef.current = new Worker(
         new URL("../workers/sudokuWorker.js", import.meta.url),
-        { type: "module" } // Vite/CRA(Webpack5) 모두 호환
+        { type: "module" }
       );
       workerRef.current.onmessage = (e) => {
         const { jobId, ok, data } = e.data || {};
@@ -362,7 +371,10 @@ export default function SudokuPage(){
         setMemoMode(false);
         setHistory([]);
         setDone(false);
+        setSaved(false);
+        setElapsed(0);
         setStartTs(Date.now());
+        setRunning(true);        // 퍼즐이 로드되면 타이머 시작
       };
     }catch(e){
       console.warn("Worker 초기화 실패. 로컬 엔진 폴백 사용:", e);
@@ -371,15 +383,19 @@ export default function SudokuPage(){
     return () => { workerRef.current?.terminate(); };
   }, []);
 
-  // 새 퍼즐 생성 (Worker 우선, 폴백은 로컬 엔진)
+  // 새 퍼즐 생성
   async function newPuzzle(diff = difficulty){
+    setDone(false);
+    setSaved(false);
+    setName(""); setPass("");
     if (workerRef.current) {
       setLoading(true);
+      setRunning(false);
       jobIdRef.current += 1;
       workerRef.current.postMessage({ type: "gen", jobId: jobIdRef.current, difficulty: diff });
       return;
     }
-    // ---- 폴백: 로컬 엔진 동기 실행 (UI가 잠깐 멈출 수 있음) ----
+    // 폴백: 로컬 엔진
     const { puzzle, solution:sol } = generateRatedPuzzle(diff);
     const fixedMask = puzzle.map(row=> row.map(v=> !!v));
     setCells(fromGrid(puzzle, fixedMask));
@@ -387,15 +403,17 @@ export default function SudokuPage(){
     setSelected(null);
     setMemoMode(false);
     setHistory([]);
-    setDone(false);
+    setElapsed(0);
     setStartTs(Date.now());
+    setRunning(true);
   }
 
-  useEffect(()=>{ newPuzzle("normal"); }, []);
+  // 최초 진입: easy 로 시작
+  useEffect(()=>{ newPuzzle("easy"); }, []);
 
-  // actions
+  // 입력
   function applyNumber(n){
-    if(!selected || loading) return;
+    if(!selected || loading || done) return;
     const {r,c}=selected;
     const before = JSON.stringify(cells.map(row=> row.map(cell=> ({v:cell.value,f:cell.fixed,n:[...cell.notes]}))));
     const next = cells.map(row=> row.map(cell=> ({...cell, notes:new Set(cell.notes)})));
@@ -405,21 +423,25 @@ export default function SudokuPage(){
     else{ cell.value = n; cell.notes.clear(); }
     pushHistory(before);
     setCells(next);
-    const flat = next.flat();
-    if(flat.every(cell => cell.value)){
-      const allOk = next.every((row,ri)=> row.every((cell,ci)=> cell.value===solution[ri][ci]));
-      if(allOk){ setDone(true); }
+
+    // 완료 체크: 모든 값 존재 + solution과 일치
+    const finished = next.every((row,ri)=> row.every((cell,ci)=> cell.value && cell.value===solution[ri][ci]));
+    if(finished){
+      setDone(true);
+      setRunning(false); // 타이머 정지
     }
   }
+
   function erase(){
-    if(!selected || loading) return;
+    if(!selected || loading || done) return;
     const {r,c}=selected;
     const before = JSON.stringify(cells.map(row=> row.map(cell=> ({v:cell.value,f:cell.fixed,n:[...cell.notes]}))));
     const next = cells.map(row=> row.map(cell=> ({...cell, notes:new Set(cell.notes)})));
     if(!next[r][c].fixed){ next[r][c].value=0; next[r][c].notes.clear(); pushHistory(before); setCells(next); }
   }
+
   function undo(){
-    if(loading) return;
+    if(loading || done) return;
     setHistory(h => {
       if(h.length===0) return h;
       const last = h[h.length-1];
@@ -431,10 +453,26 @@ export default function SudokuPage(){
       return h.slice(0,-1);
     });
   }
+
+  // 저장
   function handleSave(){
-    saveSudokuResult({ seconds: elapsed, difficulty });
-    navigate("/ranking?game=sudoku&difficulty="+encodeURIComponent(difficulty));
+    if(saved) return;
+    if(!name.trim() || pass.trim().length < 4){
+      alert("닉네임을 입력하고, 비밀번호는 4자 이상으로 입력해주세요.");
+      return;
+    }
+    try{
+      saveSudokuResult({ name: name.trim(), pass: pass.trim(), seconds: elapsed, difficulty });
+      setSaved(true);
+      navigate("/ranking?game=sudoku&difficulty="+encodeURIComponent(difficulty));
+    }catch(e){
+      alert("저장 중 오류가 발생했습니다.");
+    }
   }
+
+  const timeText = running
+    ? `${Math.floor(elapsed/60)}:${String(elapsed%60).padStart(2,"0")}`
+    : `${Math.floor(elapsed/60)}:${String(elapsed%60).padStart(2,"0")}`;
 
   return (
     <div className={styles.page}>
@@ -442,13 +480,13 @@ export default function SudokuPage(){
         <h1>스도쿠</h1>
         <div className={styles.controls}>
           <span className={styles.time}>
-            시간: <b>{Math.floor(elapsed/60)}:{String(elapsed%60).padStart(2,"0")}</b>
+            시간: <b>{timeText}</b>
           </span>
           <label className={styles.selectWrap}>
             난이도{" "}
             <select
               value={difficulty}
-              onChange={e=>{ setDifficulty(e.target.value); newPuzzle(e.target.value); }}
+              onChange={e=>{ const d=e.target.value; setDifficulty(d); newPuzzle(d); }}
               disabled={loading}
             >
               <option value="easy">쉬움</option>
@@ -470,21 +508,52 @@ export default function SudokuPage(){
         memoMode={memoMode}
         onNumber={applyNumber}
         onErase={erase}
+        disabled={loading || done}
       />
 
-      <div className={styles.footer}>
-        <div className={styles.actions}>
-          <button onClick={undo} className={styles.action} disabled={loading}>
-            <span className={styles.icon}>↩</span> 실행 취소
-          </button>
-          <button onClick={erase} className={styles.action} disabled={loading}>
-            <span className={styles.icon}>⌫</span> 지우기
-          </button>
-          <button onClick={()=> setMemoMode(v=>!v)} className={styles.action} disabled={loading}>
-            <span className={styles.icon}>✎</span> 메모 <span className={styles.badge}>{memoMode? "On":"Off"}</span>
-          </button>
+      {!done && (
+        <div className={styles.footer}>
+          <div className={styles.actions}>
+            <button onClick={undo} className={styles.action} disabled={loading || done}>
+              <span className={styles.icon}>↩</span> 실행 취소
+            </button>
+            <button onClick={erase} className={styles.action} disabled={loading || done}>
+              <span className={styles.icon}>⌫</span> 지우기
+            </button>
+            <button onClick={()=> setMemoMode(v=>!v)} className={styles.action} disabled={loading || done}>
+              <span className={styles.icon}>✎</span> 메모 <span className={styles.badge}>{memoMode? "On":"Off"}</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {done && (
+        <div className={styles.savePanel}>
+          <div className={styles.saveTitle}>✔ 퍼즐 완료! 랭킹에 기록해요</div>
+          <div className={styles.saveFields}>
+            <input
+              className={styles.input}
+              placeholder="닉네임"
+              value={name}
+              onChange={e=> setName(e.target.value)}
+              maxLength={16}
+            />
+            <input
+              className={styles.input}
+              placeholder="비밀번호(4자 이상)"
+              value={pass}
+              onChange={e=> setPass(e.target.value)}
+              minLength={4}
+            />
+            <button className={styles.btnPrimary} onClick={handleSave} disabled={saved}>
+              {saved ? "저장됨" : "점수 저장하기"}
+            </button>
+            <button className={styles.btn} onClick={()=> navigate("/ranking?game=sudoku&difficulty="+encodeURIComponent(difficulty))}>
+              랭킹 보기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -18,13 +18,13 @@ export default function HomePage() {
   const [sudokuTop, setSudokuTop] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 스도쿠 TOP3도 '어려움' 난이도 기준으로 조회하도록 변경
+  // 스도쿠 TOP3도 '쉬움' 난이도 기준으로 조회하도록 변경
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         const lemon = await fetchRanking({ scope: "season", limit: 3 });
-        const sudoku = await fetchSudokuAlltime("hard", 3); // ← hard 기준
+        const sudoku = await fetchSudokuAlltime("easy", 3); // ← easy 기준
         setLemonTop(lemon || []);
         setSudokuTop(sudoku || []);
       } catch (e) {
@@ -92,7 +92,9 @@ export default function HomePage() {
             9×9 격자를 채우는 퍼즐! 유일 해답 퍼즐로 생성되며, <b>최단 시간</b>을 랭킹에 기록하세요.
           </p>
           <div className={styles.cardActions}>
-            <Link to="/sudoku" className={styles.primaryBtn}>플레이하기</Link>
+            <Link to="/sudoku?difficulty=easy" className={styles.primaryBtn}>
+              플레이하기
+            </Link>
             <Link to="/ranking?game=sudoku&difficulty=easy" className={styles.linkBtn}>랭킹 보기</Link>
           </div>
 
