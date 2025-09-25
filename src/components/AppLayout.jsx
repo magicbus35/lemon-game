@@ -19,7 +19,7 @@ export default function AppLayout() {
     <div className={styles.shell}>
       <header className={styles.header}>
         <NavLink to="/" className={styles.brand}>
-          <span className={styles.logo}>🍋</span>
+          <span className={styles.logo}>🦜</span>
           <span className={styles.brandTextKo}>버디랜드</span>
           <span className={styles.brandTextEn}>Birdyland</span>
         </NavLink>
