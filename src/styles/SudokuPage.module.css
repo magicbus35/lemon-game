@@ -1,3 +1,36 @@
+
+/* Themed form controls inside Sudoku page */
+.page select,
+.page input[type="text"],
+.page input[type="password"],
+.page input[type="number"] {
+  background: var(--input-bg);
+  color: var(--input-text);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+.page select:focus,
+.page input[type="text"]:focus,
+.page input[type="password"]:focus,
+.page input[type="number"]:focus {
+  border-color: color-mix(in oklab, var(--input-border) 30%, var(--c-text) 70%);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--input-border) 50%, transparent);
+}
+.page input::placeholder {
+  color: color-mix(in oklab, var(--input-text) 50%, transparent);
+}
+/* Difficulty chip/time badges */
+.page [data-chip],
+.page .chip {
+  background: var(--c-chip);
+  color: var(--c-text);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
 /* ===== Sudoku classic look (updated) ===== */
 
 .page {
@@ -14,7 +47,7 @@
 .boardWrap {
   display: inline-block;
   padding: 10px;
-  background: #fff;
+  background: var(--panel);
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,.08);
   margin: 0 auto; /* 혹시 모를 부모 레이아웃에서도 중앙 */
@@ -39,9 +72,9 @@
   justify-content: center;
   font-size: calc(var(--cell) * .46);
   font-weight: 500;
-  color: #0f172a;          /* 기본 글자색 */
-  background: #ffffff;
-  border: 1px solid #cbd5e1; /* 얇은 회색 라인 */
+  color: var(--c-text);          /* 기본 글자색 */
+  background: var(--panel);
+  border: 1px solid var(--grid); /* 얇은 회색 라인 */
   user-select: none;
   cursor: default;
 }
@@ -66,16 +99,22 @@
 .error { background: transparent; }
 
 /* ===== 3×3 박스의 굵은 경계선 ===== */
-.cell:nth-child(9n+1) { border-left: 2px solid #475569; }
-.cell:nth-child(9n+4) { border-left: 2px solid #475569; }
-.cell:nth-child(9n+7) { border-left: 2px solid #475569; }
-.cell:nth-child(9n)   { border-right: 2px solid #475569; }
+.cell:nth-child(9n+1) { border-left: 2px solid var(--grid-bold); }
+.cell:nth-child(9n+4) { border-left: 2px solid var(--grid-bold); }
+.cell:nth-child(9n+7) { border-left: 2px solid var(--grid-bold); }
+.cell:nth-child(9n)   { border-right: 2px solid var(--grid-bold); }
 
-.cell:nth-child(-n+9)                  { border-top: 2px solid #475569; }       /* row 1 */
-.cell:nth-child(n+28):nth-child(-n+36) { border-top: 2px solid #475569; }       /* row 4 */
-.cell:nth-child(n+55):nth-child(-n+63) { border-top: 2px solid #475569; }       /* row 7 */
-.cell:nth-child(n+73)                  { border-bottom: 2px solid #475569; }
+.cell:nth-child(-n+9)                  { border-top: 2px solid var(--grid-bold); }       /* row 1 */
+.cell:nth-child(n+28):nth-child(-n+36) { border-top: 2px solid var(--grid-bold); }       /* row 4 */
+.cell:nth-child(n+55):nth-child(-n+63) { border-top: 2px solid var(--grid-bold); }       /* row 7 */
+.cell:nth-child(n+73)                  { border-bottom: 2px solid var(--grid-bold); }
 
 @media (max-width: 480px) {
   .board { --cell: 38px; }
+}
+
+
+/* Numbers color aligned with Lemon Game */
+.cell, .given, .user {
+  color: var(--text, var(--c-text));
 }

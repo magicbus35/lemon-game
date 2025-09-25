@@ -1,110 +1,48 @@
-/* 부드러운 다크/라이트 공통 토큰 */
-:root {
-  /* 라이트 */
-  --bg: #f7f9f8;
-  --bg-muted: #edf3f1;
+:root{
+  /* light defaults */
+  --c-bg: #f7f9fc;
+  --c-text: #1f2937;
   --panel: #ffffff;
-  --panel-contrast: #f3f6f5;
-  --border: #d9e2df;
+  --panel-border: rgba(0,0,0,.06);
+  --header-bg: rgba(255,255,255,.75);
+  --header-border: rgba(0,0,0,.06);
 
-  --text: #0f1a14;         /* 너무 새하얀/새까만 대비 피함 */
-  --text-muted: #4a5a53;
-  --text-soft: #7a8a83;
+  /* Sudoku board & inputs */
+  --grid: #cbd5e1;
+  --grid-bold: #475569;
+  --input-bg: var(--panel);
+  --input-border: var(--panel-border);
+  --input-text: var(--text, var(--c-text));
+  --c-chip: #f4f6fa;
+  --chip-bg: #f3f4f6;
 
-  /* 포인트(연한 초록) */
-  --accent: #37c380;
-  --accent-em: #21ad6a;
-  --accent-weak: #a6e7c9;
+  /* Lemon selection defaults */
+  --select-border: rgba(34,197,94,1);
+  --select-fill: rgba(34,197,94,0.12);
 
-  /* 상태색 살짝 톤다운 */
-  --warn: #ffb74d;
-  --danger: #e57373;
-  --ok: #61d69c;
-
-  --shadow-1: 0 6px 20px rgba(12, 16, 14, 0.06);
-  --radius: 14px;
+  /* Accent */
+  --accent: #22c55e;
+  --accent-text: #ffffff;
 }
 
-/* 다크: 퀘이사존 풍의 차콜 계열, 눈 편한 대비  */
-.dark {
-  --bg: #151a1f;           /* 완전 블랙 대신 차콜 */
-  --bg-muted: #1a2026;
-  --panel: #1f252c;        /* 카드/패널 */
-  --panel-contrast: #1b2127;
-  --border: #2a323b;
+html.dark, [data-theme="dark"]{
+  /* dark overrides */
+  --c-bg: #0b1420;
+  --c-text: #e5e7eb;
+  --panel: #1e2630;
+  --panel-border: rgba(255,255,255,.08);
+  --header-bg: rgba(17,24,39,.72);
+  --header-border: rgba(255,255,255,.08);
 
-  --text: #e3e9ed;         /* 새하얀 #fff 대신 */
-  --text-muted: #b6c2cb;
-  --text-soft: #93a0aa;
+  --grid: rgba(255,255,255,.18);
+  --grid-bold: rgba(255,255,255,.32);
 
-  /* 초록 포인트를 다크에서 살짝 딥하게 */
-  --accent: #33ba79;
-  --accent-em: #2aa36a;
-  --accent-weak: #265c45;
+  --input-bg: var(--panel);
+  --input-border: var(--panel-border);
+  --input-text: var(--text, var(--c-text));
+  --c-chip: rgba(255,255,255,.06);
+  --chip-bg: rgba(255,255,255,.06);
 
-  --warn: #ffb84f;
-  --danger: #ef9090;
-  --ok: #53cc93;
-
-  --shadow-1: 0 10px 28px rgba(3, 5, 6, 0.3);
-  --radius: 14px;
-}
-
-/* 전역 바탕/글자 */
-html, body {
-  background: var(--bg);
-  color: var(--text);
-}
-
-/* 공통 카드 */
-.app-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-1);
-}
-
-/* 버튼 토큰 */
-.btn {
-  border-radius: 10px;
-  padding: 10px 14px;
-  font-weight: 600;
-  border: 1px solid var(--border);
-  background: var(--panel-contrast);
-  color: var(--text);
-}
-.btn:hover { filter: brightness(1.05); }
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent-em);
-  color: #0c130f;
-}
-.btn-secondary {
-  background: var(--bg-muted);
-}
-.btn-danger {
-  background: var(--danger);
-  border-color: #e67a7a;
-  color: #2b0e0e;
-}
-
-/* 헤더/푸터 살짝 반투명 차콜 */
-.app-header {
-  backdrop-filter: saturate(120%) blur(8px);
-  background: color-mix(in oklab, var(--panel) 82%, transparent);
-  border-bottom: 1px solid var(--border);
-}
-.app-footer {
-  color: var(--text-soft);
-}
-
-/* 작은 배지 */
-.badge-soft {
-  background: var(--bg-muted);
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 3px 8px;
-  font-weight: 600;
-  font-size: 12px;
+  --select-border: color-mix(in oklab, rgba(34,197,94,1) 80%, white 20%);
+  --select-fill: color-mix(in oklab, rgba(34,197,94,0.12) 120%, transparent);
 }

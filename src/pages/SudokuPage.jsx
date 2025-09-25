@@ -327,7 +327,7 @@ export default function SudokuPage() {
 
       {/* 상태/컨트롤: 시간 + 난이도 드롭다운 + 새 퍼즐 */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
-        <div style={{ padding: "8px 12px", borderRadius: 8, background: "var(--c-chip,#f4f6fa)" }}>
+        <div style={{ padding: "8px 12px", borderRadius: 8, background: "var(--c-chip)" }}>
           시간: <b>{mmss}</b>
         </div>
 
@@ -371,7 +371,7 @@ export default function SudokuPage() {
       <div className={styles.centerRow} style={{ marginTop: 14 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
           <input
-            className="border rounded px-3 py-2"
+            type="text" className="border rounded px-3 py-2"
             placeholder="닉네임"
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}

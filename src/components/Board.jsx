@@ -63,8 +63,8 @@ export default function Board({
             top: overlayRect.top,
             width: overlayRect.width,
             height: overlayRect.height,
-            border: "2px solid rgba(34,197,94,1)",
-            background: "rgba(34,197,94,0.12)",
+            border: '2px solid var(--select-border, rgba(34,197,94,1))',
+            background: 'var(--select-fill, rgba(34,197,94,0.12))',
             zIndex: 3,
           }}
         />
