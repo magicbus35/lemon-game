@@ -6,111 +6,161 @@
 .header{ display:flex; align-items:center; gap:12px; margin-bottom:12px; }
 .header h1{ margin:0; font-size:24px; }
 .controls{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.selectWrap select{ background: var(--input-bg); color: var(--input-text); border:1px solid var(--input-border); border-radius:8px; padding:6px 8px; }
+.selectWrap select{
+  background: var(--input-bg);
+  color: var(--input-text);
+  border:1px solid var(--input-border);
+  border-radius:8px;
+  padding:6px 8px;
+}
 
-.boardWrap{ display:flex; flex-direction:column; align-items:center; margin: 12px 0; }
+/* 보드+툴바+키패드 동일 폭 + 중앙정렬 */
+.boardArea{
+  width: fit-content;
+  display:flex; flex-direction:column; align-items:center;
+  margin-inline: auto; /* ← 가운데 정렬 */
+}
+
+/* 보드와 키패드의 기준 값 */
+.boardWrap{
+  --cell: 44px;            /* 한 칸 크기 */
+  --grid-thin-w: 1px;      /* 얇은선 두께 */
+  --grid-thin: var(--grid, #9aa7b6);
+  --grid-bold: var(--grid, #233043);
+  --frame-bw: 3px;
+
+  display:flex; flex-direction:column; align-items:center;
+  margin: 12px 0;
+}
 
 /* ====== 바깥 굵은 테두리 ====== */
 .frame{
-  --grid-bold-w: 3px;
   background: var(--panel);
-  border: var(--grid-bold-w) solid var(--grid-bold);
+  border: var(--frame-bw) solid var(--grid-bold); /* 다크/라이트에서 자동 변경 */
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0,0,0,.06);
   padding: 0;
+  position: relative;
+  overflow: hidden;
 }
 
-/* ====== 9×9 셀 컨테이너 ====== */
+/* ====== 9×9 보드 ====== */
 .board{
-  --cell: 44px;            /* 셀 한 칸 크기 */
-  --grid-thin-w: 1px;      /* 얇은 내부 그리드 두께 */
-
   position: relative;
   display:grid;
   grid-template-columns: repeat(9, var(--cell));
   grid-template-rows: repeat(9, var(--cell));
   width: calc(var(--cell) * 9);
   height: calc(var(--cell) * 9);
-  border-radius: 6px;      /* 프레임보다 살짝 작게 */
+  border-radius: 6px;
   background: transparent;
+  transform: translateZ(0);
 }
 
-/* 얇은 내부 그리드 (셀 원점 기준) */
+/* ── 레이어 순서 ───────────────────────
+   5 : 숫자/메모
+   4 : 굵은 3x3 경계선
+   3 : 얇은 내부 그리드
+   1 : 선택 테두리
+   0 : 피어/배경
+*/
+
+/* 얇은 내부 그리드 (z=3) */
 .board::before{
   content:"";
   position:absolute;
-  /* 오른쪽/아래쪽은 마지막 선이 프레임과 겹치지 않게 살짝 안쪽으로 */
-  inset: 0 var(--grid-thin-w) var(--grid-thin-w) 0;
+  inset: 0;
   border-radius: inherit;
   background-image:
-    linear-gradient(to right, var(--grid) var(--grid-thin-w), transparent 0),
-    linear-gradient(to bottom, var(--grid) var(--grid-thin-w), transparent 0);
+    linear-gradient(to right, var(--grid-thin) var(--grid-thin-w), transparent 0),
+    linear-gradient(to bottom, var(--grid-thin) var(--grid-thin-w), transparent 0);
   background-size: var(--cell) var(--cell), var(--cell) var(--cell);
   background-repeat: repeat;
   background-position: 0 0, 0 0;
-  z-index: 1;
+  z-index: 3;
   pointer-events:none;
 }
 
-/* 3×3 굵은 선 (얇은 선 위에) */
+/* 굵은 3×3 경계선 (z=4) */
 .board::after{
   content:"";
   position:absolute;
-  /* 이쪽도 오른쪽/아래쪽 한 줄은 프레임과 안 겹치게 */
-  inset: 0 var(--grid-bold-w) var(--grid-bold-w) 0;
+  inset: 0 var(--frame-bw) var(--frame-bw) 0; /* 프레임과 겹치지 않게 */
   border-radius: inherit;
   background-image:
     repeating-linear-gradient(
       to right,
-      transparent 0 calc(var(--cell)*3 - var(--grid-bold-w)),
+      transparent 0 calc(var(--cell)*3 - var(--frame-bw)),
       var(--grid-bold) 0 calc(var(--cell)*3)
     ),
     repeating-linear-gradient(
       to bottom,
-      transparent 0 calc(var(--cell)*3 - var(--grid-bold-w)),
+      transparent 0 calc(var(--cell)*3 - var(--frame-bw)),
       var(--grid-bold) 0 calc(var(--cell)*3)
     );
   background-size: 100% 100%, 100% 100%;
   background-repeat: no-repeat, no-repeat;
-  z-index: 1;
+  z-index: 4;
   pointer-events:none;
 }
 
-/* 셀 – 선은 그리지 않고 투명 */
+/* 셀 */
 .cell{
   width: var(--cell);
   height: var(--cell);
   position: relative;
   background: transparent;
   user-select:none;
+  border: 0;
+  z-index: 0;
 }
 
-/* 선택/피어 하이라이트 */
-.selected{
-  position: relative;
-  z-index: 3; /* 격자 위 */
-  box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--accent,#22c55e), transparent 30%);
+/* peer 하이라이트 (아주 옅게, z=0) */
+.cell::before{
+  content: "";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
 }
-.peer{ background: color-mix(in oklab, var(--panel) 95%, black 5%); }
+.peer::before{
+  background: color-mix(in oklab, var(--panel) 97%, black 3%);
+  z-index: 0;
+}
 
-/* 값/메모 */
+/* 선택 테두리 (그리드 아래, z=1) — 좀 더 크게 */
+.cell::after{
+  content:"";
+  position:absolute;
+  pointer-events:none;
+  border-radius:4px;
+}
+.selected::after{
+  inset: 1px; /* ← 더 크게 */
+  border: 3px solid color-mix(in oklab, var(--accent,#22c55e), transparent 30%);
+  z-index: 1;
+}
+
+/* 값/메모 (z=5) */
 .value{
-  position:absolute; inset:0;
+  position:absolute;
+  inset:0;
   display:flex; align-items:center; justify-content:center;
   font-weight:700;
   font-size: calc(var(--cell) * 0.62);
-  z-index: 2; /* 격자 위 */
+  z-index: 5;
 }
 .given .value{ color: var(--text, var(--c-text)); }
 .user  .value{ color: var(--user-blue); }
 
 .notes{
-  position:absolute; inset:0;
+  position:absolute;
+  inset:0;
   display:grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  padding:2px; box-sizing:border-box;
-  z-index: 2; /* 격자 위 */
+  padding:2px;
+  box-sizing:border-box;
+  z-index: 5;
 }
 .note{
   font-size: calc(var(--cell) * 0.26);
@@ -119,68 +169,67 @@
   color: var(--note);
 }
 
-/* 키패드 */
-.keypad{ display:flex; gap:8px; margin-top:10px; }
-.key, .keyAlt{
-  background: var(--panel);
-  border:1px solid var(--panel-border);
-  border-radius:8px;
-  min-width:40px; padding: 10px 12px;
-  font-weight:700;
+/* === 툴바 (보드 아래, 숫자 위) — 테마 색 반영 === */
+.toolbar{
+  width: 100%;
+  display:flex; justify-content:center; align-items:center;
+  gap:24px;
+  margin: 12px 0 10px;
 }
-.key{ color: var(--sudoku-user); font-size: 22px; }
-.keyAlt{ color: var(--text, var(--c-text)); font-size: 16px; }
+.tool{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:10px 14px;
+  border:1px solid var(--panel-border, rgba(0,0,0,.08));
+  border-radius:12px;
+  background: var(--panel, #fff);
+  color: var(--text, inherit);
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+.tool[disabled]{ opacity:.5; cursor:default; }
+.toolIcon{ font-size:22px; line-height:1; overflow: visible; display: block; }
+.toolLabel{ font-size:14px; margin-top:6px; }
 
-/* 하단 액션 */
+/* === 숫자 키패드 — 래퍼 폭과 동일 + 테마 색 반영 === */
+.keypadLarge{
+  width: 100%;
+  display:grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap:8px;
+  margin-top: 6px;
+}
+.keyBig{
+  width: 100%;
+  height: var(--cell);
+  display:flex; align-items:center; justify-content:center;
+  font-size: calc(var(--cell) * 0.45);
+  border-radius:12px;
+  border:1px solid var(--panel-border, rgba(0,0,0,.08));
+  background: var(--panel, #fff);
+  color: var(--text, inherit);
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+.keyBig[disabled]{ opacity:.4; }
+
+/* 저장 패널/기타 */
 .footer{ display:flex; justify-content:center; margin-top:16px; }
 .actions{ display:flex; gap:12px; }
 .action{
   background: var(--panel);
   color: var(--text, var(--c-text));
   border:1px solid var(--panel-border);
-  padding:8px 12px; border-radius:8px;
+  padding:8px 12px;
+  border-radius:8px;
 }
 .badge{
-  display:inline-block; margin-left:6px; padding:2px 8px;
-  border-radius: 999px; background: var(--chip-bg, var(--c-chip)); color: var(--text);
+  display:inline-block;
+  margin-left:6px;
+  padding:2px 8px;
+  border-radius: 999px;
+  background: var(--chip-bg, var(--c-chip));
+  color: var(--text);
 }
 
 /* Responsive */
 @media (max-width: 560px){
-  .board{ --cell: 36px; width: calc(var(--cell) * 9); height: calc(var(--cell) * 9); }
-}
-
-/* 저장 패널 */
-.savePanel{
-  margin-top: 16px;
-  padding: 12px;
-  background: var(--panel, #f8fafc);
-  border: 1px solid var(--panel-border, rgba(0,0,0,.08));
-  border-radius: 10px;
-}
-.saveTitle{
-  font-weight: 700;
-  margin-bottom: 10px;
-}
-.saveFields{
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-.input{
-  background: var(--input-bg, #fff);
-  color: var(--input-text, inherit);
-  border: 1px solid var(--input-border, rgba(0,0,0,.15));
-  border-radius: 8px;
-  padding: 8px 10px;
-  min-width: 160px;
-}
-.btnPrimary{
-  background: #10b981;
-  color: #fff;
-  border: 1px solid #0ea271;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-weight: 700;
+  .boardWrap{ --cell: 36px; }
 }
