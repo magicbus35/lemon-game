@@ -123,7 +123,7 @@
   pointer-events:none;
 }
 .peer::before{
-  background: color-mix(in oklab, var(--panel) 97%, black 3%);
+  background: color-mix(in oklab, var(--panel) 70%, gray 30%);
   z-index: 0;
 }
 
@@ -232,4 +232,12 @@
 /* Responsive */
 @media (max-width: 560px){
   .boardWrap{ --cell: 36px; }
+}
+
+/* 항상 적용: 얇은 그리드/겉 테두리 컬러 오버라이드 */
+.page .boardWrap{
+  --grid-thin-w: 1px;     /* 얇은 내부선 두께 */
+  --grid-thin: #6d747c;   /* 얇은 내부선 색 */
+  --grid-bold: #6d747c;   /* 3×3 굵은선 + 프레임 색 */
+  --frame-bw: 4px;        /* 프레임 두께 */
 }
