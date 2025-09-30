@@ -1,6 +1,6 @@
 // src/pages/SudokuPage.jsx
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import styles from "../styles/SudokuPage.module.css";
 import { saveSudokuResult } from "../services/sudokuStore";
 
@@ -277,8 +277,15 @@ export default function SudokuPage(){
   setSelected({ r:0, c:0 }); setMemoMode(false); setHistory([]);
   setElapsed(0); setStartTs(Date.now()); setRunning(true);
 }
-
-  useEffect(()=>{ newPuzzle("easy"); }, []);
+  const location = useLocation();
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    const q = (sp.get("difficulty") || "").toLowerCase();
+    const allowed = ["super-easy","easy","normal","hard","expert","test"];
+    const d = allowed.includes(q) ? q : "easy";
+    setDifficulty(d);
+    newPuzzle(d);           // ← 명시적으로 해당 난이도로 생성
+  }, [location.search]);    // 쿼리 바뀌면 다시 반영
 
   // 입력
   function applyNumber(n){

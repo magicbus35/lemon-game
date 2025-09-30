@@ -1,16 +1,17 @@
+// src/pages/HomePage.jsx
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 // 레몬: 시즌 기본 랭킹(현재 시즌) 상위 N
 import { fetchRanking } from "../services/scoreStore";
-// 스도쿠: 전체 베스트 시간 상위 N
+// 스도쿠: 전체 베스트 시간 상위 N (limit, difficulty)
 import { fetchSudokuAlltime } from "../services/sudokuStore";
 
 import styles from "../styles/HomePage.module.css";
 
 function formatSec(ms) {
   const s = Math.max(0, Math.floor(Number(ms || 0) / 1000));
-  return `${(s).toFixed(0)}초`;
+  return `${s.toFixed(0)}초`;
 }
 
 export default function HomePage() {
@@ -18,19 +19,21 @@ export default function HomePage() {
   const [sudokuTop, setSudokuTop] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 스도쿠 TOP3도 '쉬움' 난이도 기준으로 조회하도록 변경
+  // 스도쿠 TOP3: 매우 쉬움(super-easy) 기준으로 조회
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         const lemon = await fetchRanking({ scope: "season", limit: 3 });
-        const sudoku = await fetchSudokuAlltime("easy", 3); // ← easy 기준
+        const sudoku = await fetchSudokuAlltime(3, "super-easy"); // ✅ (limit, difficulty)
         setLemonTop(lemon || []);
         setSudokuTop(sudoku || []);
       } catch (e) {
         console.error("[HomePage] load tops failed:", e);
         setLemonTop([]); setSudokuTop([]);
-      } finally { setLoading(false); }
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
@@ -92,14 +95,17 @@ export default function HomePage() {
             9×9 격자를 채우는 퍼즐! 유일 해답 퍼즐로 생성되며, <b>최단 시간</b>을 랭킹에 기록하세요.
           </p>
           <div className={styles.cardActions}>
-            <Link to="/sudoku?difficulty=easy" className={styles.primaryBtn}>
+            {/* ✅ 매우 쉬움으로 바로 플레이/랭킹 이동 */}
+            <Link to="/sudoku?difficulty=super-easy" className={styles.primaryBtn}>
               플레이하기
             </Link>
-            <Link to="/ranking?game=sudoku&difficulty=easy" className={styles.linkBtn}>랭킹 보기</Link>
+            <Link to="/ranking?game=sudoku&difficulty=super-easy" className={styles.linkBtn}>
+              랭킹 보기
+            </Link>
           </div>
 
           <div className={styles.topBox}>
-            <div className={styles.topTitle}>전체 베스트 시간 TOP 3</div>
+            <div className={styles.topTitle}>매우 쉬움 베스트 시간 TOP 3</div> {/* ✅ 라벨도 맞춤 */}
             {loading ? (
               <div className={styles.skel}>불러오는 중...</div>
             ) : sudokuTop.length === 0 ? (

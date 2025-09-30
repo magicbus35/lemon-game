@@ -23,7 +23,7 @@ export default function RankingPage() {
   const [gameTab, setGameTab] = useState(tabFromURL === "sudoku" ? "sudoku" : "lemon");
 
   // 스도쿠 난이도 (?difficulty=)
-  const diffFromURL = (params.get("difficulty") || "easy").toLowerCase();
+  const diffFromURL = (params.get("difficulty") || "super-easy").toLowerCase();
   const [sudokuDiff, setSudokuDiff] = useState(diffFromURL);
 
   // 레몬 랭킹
@@ -146,11 +146,11 @@ export default function RankingPage() {
           value={sudokuDiff}
           onChange={(e) => setSudokuDiff(e.target.value)}
         >
+          <option value="super-easy">매우쉬움</option>
           <option value="easy">쉬움</option>
           <option value="normal">보통</option>
           <option value="hard">어려움</option>
           <option value="expert">전문가</option>
-          <option value="test">테스트</option>
         </select>
         <Link to="/sudoku" className={styles.linkBtn}>게임으로</Link>
       </div>
