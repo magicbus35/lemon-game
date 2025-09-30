@@ -68,12 +68,23 @@ function makePuzzleUnique(full, cluesTarget=36){
     else{ rem+=pair?2:1; if(81-rem<=cluesTarget) break; }
   } return b;
 }
-// 간이 난이도 매핑 (super-easy 제거)
+
 function generateRatedPuzzle(target = "easy") {
+  // ✅ 테스트: 한 칸만 비우기
+  if (target === "test") {
+    const solution = generateFullSolution();
+    const puzzle   = dc(solution);
+    puzzle[0][0] = 0;
+    return { puzzle, solution, rating: "test" };
+  }
+
+  // ✅ 매우 쉬움: 힌트 46개(= 남기는 칸 46)
   const cluesTarget =
-    target === "easy"   ? 40 :
-    target === "normal" ? 32 :
-    target === "hard"   ? 28 : 24; // expert
+    target === "super-easy" ? 46 :
+    target === "easy"       ? 40 :
+    target === "normal"     ? 32 :
+    target === "hard"       ? 28 : 24; // expert
+
   const solution = generateFullSolution();
   const puzzle   = makePuzzleUnique(solution, cluesTarget);
   return { puzzle, solution, rating: target };
@@ -240,20 +251,32 @@ export default function SudokuPage(){
 
   // 새 퍼즐
   async function newPuzzle(diff = difficulty){
-    setDone(false); setSaved(false); setName(""); setPass("");
+  setDone(false); setSaved(false); setName(""); setPass("");
 
-    if (workerRef.current) {
-      setLoading(true); setRunning(false); jobIdRef.current += 1;
-      workerRef.current.postMessage({ type: "gen", jobId: jobIdRef.current, difficulty: diff });
-      return;
-    }
-    const { puzzle, solution:sol } = generateRatedPuzzle(diff);
+  // ✅ super-easy도 워커 우회(혹시 워커가 모르는 난이도일 수 있어서 안전하게 로컬 생성)
+  if (diff === "test" || diff === "super-easy") {
+    const { puzzle, solution: sol } = generateRatedPuzzle(diff);
     const fixedMask = puzzle.map(row=> row.map(v=> !!v));
     setCells(fromGrid(puzzle, fixedMask));
     setSolution(sol);
     setSelected({ r:0, c:0 }); setMemoMode(false); setHistory([]);
     setElapsed(0); setStartTs(Date.now()); setRunning(true);
+    return;
   }
+
+  if (workerRef.current) {
+    setLoading(true); setRunning(false); jobIdRef.current += 1;
+    workerRef.current.postMessage({ type: "gen", jobId: jobIdRef.current, difficulty: diff });
+    return;
+  }
+
+  const { puzzle, solution:sol } = generateRatedPuzzle(diff);
+  const fixedMask = puzzle.map(row=> row.map(v=> !!v));
+  setCells(fromGrid(puzzle, fixedMask));
+  setSolution(sol);
+  setSelected({ r:0, c:0 }); setMemoMode(false); setHistory([]);
+  setElapsed(0); setStartTs(Date.now()); setRunning(true);
+}
 
   useEffect(()=>{ newPuzzle("easy"); }, []);
 
@@ -298,9 +321,11 @@ export default function SudokuPage(){
     if (!puzzleIdRef.current) puzzleIdRef.current = String(Date.now());
 
     const payload = { nickname, password, puzzleId:String(puzzleIdRef.current), elapsedMs:Number(elapsed)*1000, mistakes:0, difficulty };
+  console.log("[SudokuPage] ▶ save payload:", { ...payload, password: payload.password ? "(provided)" : "(empty)" });
     (async () => {
       try{
         const res = await saveSudokuResult(payload);
+      console.log("[SudokuPage] ◀ save result:", res);
         if(res?.ok){ setSaved(true); navigate("/ranking?game=sudoku&difficulty="+encodeURIComponent(difficulty)); }
         else{
           const reason = res?.reason || "SERVER_ERROR";
@@ -308,7 +333,7 @@ export default function SudokuPage(){
             : reason==="NICK_AUTH_FAILED"?"닉네임/비밀번호가 일치하지 않습니다."
             : "서버 오류로 저장에 실패했습니다.");
         }
-      }catch(e){ console.error(e); alert("저장 중 오류가 발생했습니다."); }
+      }catch(e){ console.error("[SudokuPage] ❌ save exception:", e); alert("저장 중 오류가 발생했습니다."); }
     })();
   }
 
@@ -365,6 +390,7 @@ export default function SudokuPage(){
                 onChange={e=>{ const d=e.target.value; setDifficulty(d); newPuzzle(d); }}
                 disabled={loading}
               >
+                <option value="super-easy">매우 쉬움</option>
                 <option value="easy">쉬움</option>
                 <option value="normal">보통</option>
                 <option value="hard">어려움</option>
