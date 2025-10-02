@@ -167,7 +167,13 @@ export default function WatermelonPage(){
     const render = () => {
       const bodies = Matter.Composite.allBodies(world);
       ctx.clearRect(0,0,W,H);
-      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--c-surface") || "#fff";
+      const host = canvasRef.current;
+      const rs = host ? getComputedStyle(host) : getComputedStyle(document.documentElement);
+      ctx.fillStyle = (
+        rs.getPropertyValue("--wm-stage").trim() ||
+        rs.getPropertyValue("--c-surface").trim() ||
+        "#fff"
+)     ;
       ctx.fillRect(0,0,W,H);
 
       // 상단 라인
