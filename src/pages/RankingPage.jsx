@@ -8,6 +8,7 @@ import {
   fetchAvailableSeasons,
 } from "../services/scoreStore";
 import { fetchSudokuAlltime } from "../services/sudokuStore";
+import { fetchWatermelonAlltime } from "../services/watermelonStore";
 import styles from "../styles/RankingPage.module.css";
 
 function formatKST(isoString) {
@@ -18,9 +19,12 @@ function formatKST(isoString) {
 export default function RankingPage() {
   const [params, setParams] = useSearchParams();
 
-  // 탭: lemon | sudoku
+  // 탭: lemon | sudoku | watermelon
   const tabFromURL = (params.get("game") || "lemon").toLowerCase();
-  const [gameTab, setGameTab] = useState(tabFromURL === "sudoku" ? "sudoku" : "lemon");
+  const [gameTab, setGameTab] = useState(
+    tabFromURL === "sudoku" ? "sudoku" :
+    tabFromURL === "watermelon" ? "watermelon" : "lemon"
+  );
 
   // 스도쿠 난이도 (?difficulty=)
   const diffFromURL = (params.get("difficulty") || "super-easy").toLowerCase();
@@ -34,6 +38,9 @@ export default function RankingPage() {
 
   // 스도쿠 랭킹
   const [sudokuRows, setSudokuRows] = useState([]);
+
+  // 수박 랭킹
+  const [watermelonRows, setWatermelonRows] = useState([]);
 
   // URL 동기화
   useEffect(() => {
@@ -79,7 +86,7 @@ export default function RankingPage() {
     })();
   }, [gameTab, selectedYM]);
 
-  // 스도쿠 랭킹 로드 (난이도별)
+  // 스도쿠 랭킹 로드
   useEffect(() => {
     if (gameTab !== "sudoku") return;
     (async () => {
@@ -93,7 +100,21 @@ export default function RankingPage() {
     })();
   }, [gameTab, sudokuDiff]);
 
-  // 렌더
+  // 수박 랭킹 로드
+  useEffect(() => {
+    if (gameTab !== "watermelon") return;
+    (async () => {
+      try {
+        const rows = await fetchWatermelonAlltime(50);
+        setWatermelonRows(rows || []);
+      } catch (e) {
+        console.error("[RankingPage] watermelon load failed:", e);
+        setWatermelonRows([]);
+      }
+    })();
+  }, [gameTab]);
+
+  // 렌더: 레몬
   const lemonTable = useMemo(() => (
     <div className={styles.tableWrap}>
       <div className={styles.toolbar}>
@@ -137,6 +158,7 @@ export default function RankingPage() {
     </div>
   ), [lemonRows, seasons, selectedYM]);
 
+  // 렌더: 스도쿠
   const sudokuTable = useMemo(() => (
     <div className={styles.tableWrap}>
       <div className={styles.toolbar}>
@@ -155,7 +177,6 @@ export default function RankingPage() {
         <Link to="/sudoku" className={styles.linkBtn}>게임으로</Link>
       </div>
 
-      {/* ✅ 난이도 열 제거 / 순위 열 좁게 / 숫자 우측 정렬 */}
       <table className={`${styles.table} ${styles.compact} ${styles.zebra}`}>
         <thead>
           <tr>
@@ -182,6 +203,40 @@ export default function RankingPage() {
     </div>
   ), [sudokuRows, sudokuDiff]);
 
+  // 렌더: 수박
+  const watermelonTable = useMemo(() => (
+    <div className={styles.tableWrap}>
+      <div className={styles.toolbar}>
+        <span className={styles.label}>전체</span>
+        <Link to="/Watermelon" className={styles.linkBtn}>게임으로</Link>
+      </div>
+
+      <table className={`${styles.table} ${styles.compact} ${styles.zebra}`}>
+        <thead>
+          <tr>
+            <th className={styles.colRank}>순위</th>
+            <th>닉네임</th>
+            <th className={styles.colNum}>점수</th>
+            <th>기록일</th>
+          </tr>
+        </thead>
+        <tbody>
+          {watermelonRows.map((r, i) => (
+            <tr key={`${r.nickname}-${r.created_at}-${i}`}>
+              <td className={styles.colRank}>{i + 1}</td>
+              <td>{r.nickname}</td>
+              <td className={styles.colNum}>{r.score}</td>
+              <td>{formatKST(r.created_at)}</td>
+            </tr>
+          ))}
+          {!watermelonRows.length && (
+            <tr><td colSpan={4} className={styles.empty}>데이터가 없습니다.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  ), [watermelonRows]);
+
   return (
     <div className={styles.wrap}>
       <header className={styles.header}>
@@ -198,11 +253,19 @@ export default function RankingPage() {
           >
             스도쿠
           </button>
+          <button
+            className={`${styles.tab} ${gameTab === "watermelon" ? styles.active : ""}`}
+            onClick={() => setGameTab("watermelon")}
+          >
+            수박
+          </button>
         </div>
       </header>
 
       <main className={styles.main}>
-        {gameTab === "lemon" ? lemonTable : sudokuTable}
+        {gameTab === "lemon" ? lemonTable
+          : gameTab === "sudoku" ? sudokuTable
+          : watermelonTable}
       </main>
     </div>
   );
