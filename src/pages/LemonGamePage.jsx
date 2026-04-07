@@ -18,15 +18,7 @@ const BGM_SRC = encodeURI(
   "/sound/Kygo Ft. Conrad - Firestone (John Dee Remix)_[cut_175sec].mp3"
 );
 
-const bonusMessages = [
-  '이봐, 친구! 그거 알아? 버디의 본캐는 버디1204라는 놀라운 사실을!',
-  '이봐, 친구! 그거 알아? 주급이 무려 200만이 넘는 사람들이 있다는 놀라운 사실을!',
-  '이 게임을 플레이하는 그대에게 축복을.. "장기백"',
-  '"종로단"',
-  '화산귀환은 고금제일 정통무협이다 눈마새, 룬의 아이들 화산귀환 레츠고',
-  '진짜? 에이 설마.. 아니 어느 멍청이가 브레이커에게 정단질증 97돌을줰ㅋㅋㅋㅋㅋㅋ',
-  'ㄱㅈ ㅇㅂㄱㄹㅇㅅ'
-];
+const bonusMessages = [];
 
 // 무작위 보드 생성 (1~9)
 const generateBoard = (rows, cols) =>
@@ -119,7 +111,7 @@ export default function LemonGamePage() {
   const [dragStart, setDragStart] = useState(null);
 
   // 게임 진행
-  const [bonusMessage, setBonusMessage] = useState(bonusMessages[0]);
+  const [bonusMessage, setBonusMessage] = useState("");
   const [gameStarted, setGameStarted] = useState(false);
   const [isCountingDown, setIsCountingDown] = useState(false);
   const [countdown, setCountdown] = useState(3);
@@ -415,10 +407,10 @@ export default function LemonGamePage() {
         setBoard(next);
         setLemonCells(nextLemons);
 
-        setBonusMessage((prev) => {
-          const i = bonusMessages.indexOf(prev);
-          return bonusMessages[(i + 1) % bonusMessages.length];
-        });
+        // setBonusMessage((prev) => {
+        //   const i = bonusMessages.indexOf(prev);
+        //   return bonusMessages[(i + 1) % bonusMessages.length];
+        // });
 
         setTimeout(() => {
           const still = next.map((row) => [...row]);
@@ -652,9 +644,11 @@ export default function LemonGamePage() {
                     />
                   </div>
 
-                  <p className={`${styles.rulesText} mt-2 text-center text-xs italic`}>
-                    "{bonusMessage}"
-                  </p>
+                  {bonusMessage && (
+                    <p className={`${styles.rulesText} mt-2 text-center text-xs italic`}>
+                      "{bonusMessage}"
+                    </p>
+                  )}
 
                   {/* 진행 중: 우끼끼 + 다시하기 */}
                   {gameStarted && !isCountingDown && !gameOver && (
